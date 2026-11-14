@@ -140,10 +140,11 @@ export function buildProbeScript() {
     for (const box of document.querySelectorAll('[role="combobox"],.ant-select,[class*="Select"],[class*="selector"]')) {
       // Canvas layout chrome (the '自动铺满(70%)' zoom control), not a filter.
       if (String(box.className || '').includes('scale-selector') || box.closest('.scale-selector') !== null) continue
-      const pills = [...box.querySelectorAll('.ant-select-selection-item,[aria-selected="true"]')]
+      const items = [...box.querySelectorAll('.ant-select-selection-item,[aria-selected="true"]')]
+      const pills = items
         .map((el) => cleanText(el.getAttribute('title') || el.textContent))
         .filter((value) => value !== '' && !/^(全部|全选|请选择|搜索)$/iu.test(value))
-      if (pills.length === 0) continue
+      if (pills.length === 0 && !(items.length > 0 && box.matches('.SEL_select, [class*="SEL_"]'))) continue
       // Page filters in this BI build carry SEL_ class tokens; prefer a
       // label from the nearest filter container over generic text.
       const holder = box.closest('[class*="SEL_"],[class*="filter"],[class*="Filter"],[class*="selector"],[data-selector-id]')
@@ -151,7 +152,10 @@ export function buildProbeScript() {
         holder?.querySelector('[class*="title"],[class*="label"],label')?.textContent
         || box.getAttribute('aria-label') || '',
       ).slice(0, 40)
-      push('box:' + String(box.className || '').slice(0, 60) + ':' + label, pills, { name: label || undefined })
+      push('box:' + String(box.className || '').slice(0, 60) + ':' + label, pills, {
+        name: label || undefined,
+        ...(pills.length === 0 ? { applied: false } : {}),
+      })
     }
     // Segmented single-select widgets (e.g. LR=可用库存): the selected item
     // is unambiguous even without a label, so accept unnamed ones — BI uses

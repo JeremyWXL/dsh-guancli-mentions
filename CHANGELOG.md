@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.11
+
+- 探针上报空值页面筛选器：侦察证实 demo BI 的 `SEL_select` 下拉在无选中值时占位符是"请选择"而非 `.ant-select-selection-item`，此前被误跳。现在页面筛选器（`SEL_` class）即使没有选中值也作为 selector 上报，标记 `applied: false`——模型可区分"未筛选"与"未采集"。
+
 ## 0.5.10
 
 - `debug.dom` 分槽返回 `{domProbe, probeState}`：watcher 状态与 DOM 侦察不再互相覆盖；probe-state 增加 `probeVersion`（从注入脚本提取），一眼看出 webview 里跑的是哪版探针。
