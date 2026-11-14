@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Guandata mentions",
+    "description": "Mentions authorized Guandata datasets and dashboards in the composer, then analyzes them through the bound Guandata agent."
+  }
+}

@@ -1,0 +1,3 @@
+- insert:
+    - id: guancli-mentions
+      name: '@local/dsh-guancli-mentions'
