@@ -21,6 +21,8 @@ test('buildProbeScript returns a guarded IIFE string', () => {
   const script = buildProbeScript()
   assert.match(script, /^\(\(\) => \{/u)
   assert.match(script, /__guancliDashboardProbe/u)
+  assert.match(script, /existing\.version === PROBE_VERSION/u, 'versioned re-entry guard')
+  assert.match(script, /existing\.stop/u, 'old probe teardown on upgrade')
   assert.match(script, /GUANDATA_DASHBOARD_CONTEXT/u)
   assert.match(script, /data-selector-id/u)
   assert.ok(script.includes(`console.log('${PROBE_LOG_PREFIX}' + serialized)`))
@@ -37,9 +39,11 @@ test('buildProbeScript returns a guarded IIFE string', () => {
 test('the client bundle inlines the exact probe script from src/probe.js', async () => {
   const { readFileSync } = await import('node:fs')
   const clientSource = readFileSync(new URL('../client.js', import.meta.url), 'utf8')
+  const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
+  const expected = buildProbeScript().replace(/__PROBE_VERSION__/gu, pkg.version)
   const match = /const PROBE_SCRIPT = ("(?:[^"\\]|\\.)*");\n/.exec(clientSource)
   assert.ok(match, 'client.js must carry an inlined PROBE_SCRIPT literal')
-  assert.equal(JSON.parse(match[1]), buildProbeScript())
+  assert.equal(JSON.parse(match[1]), expected)
 })
 
 // #region parse

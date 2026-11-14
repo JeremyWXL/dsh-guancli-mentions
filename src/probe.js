@@ -35,8 +35,10 @@ export const MAX_VALUES = 50
  */
 export function buildProbeScript() {
   return `(() => {
-  if (globalThis.${PROBE_MARKER}) return 'already-installed'
-  globalThis.${PROBE_MARKER} = true
+  const PROBE_VERSION = '__PROBE_VERSION__'
+  const existing = globalThis.${PROBE_MARKER}
+  if (existing && existing.version === PROBE_VERSION) return 'already-installed'
+  if (existing && typeof existing.stop === 'function') existing.stop()
 
   const ID_PATTERN = /^[a-z0-9]{24}$/i
   const ROOT_SELECTOR = '[data-selector-id],[data-cd-id],[data-card-id],[data-component-id]'
@@ -266,20 +268,33 @@ export function buildProbeScript() {
     timer = setTimeout(publish, 600)
   }
 
-  document.addEventListener('click', (event) => {
+  const onClick = (event) => {
     const root = event.target?.closest?.(ROOT_SELECTOR)
     const id = idFrom(root)
     if (id) focusedCardId = id
     schedule()
-  }, true)
-  document.addEventListener('change', schedule, true)
-  window.addEventListener('popstate', schedule)
-  window.addEventListener('hashchange', schedule)
-  window.addEventListener('message', (event) => {
+  }
+  const onMessage = (event) => {
     if (event.source !== window || event.origin !== location.origin || event.data?.type !== 'GUANDATA_DASHBOARD_CONTEXT') return
     runtimeContext = event.data.context || null
     schedule()
-  })
+  }
+  document.addEventListener('click', onClick, true)
+  document.addEventListener('change', schedule, true)
+  window.addEventListener('popstate', schedule)
+  window.addEventListener('hashchange', schedule)
+  window.addEventListener('message', onMessage)
+  globalThis.${PROBE_MARKER} = {
+    version: PROBE_VERSION,
+    stop: () => {
+      clearTimeout(timer)
+      document.removeEventListener('click', onClick, true)
+      document.removeEventListener('change', schedule, true)
+      window.removeEventListener('popstate', schedule)
+      window.removeEventListener('hashchange', schedule)
+      window.removeEventListener('message', onMessage)
+    },
+  }
   schedule()
   return 'installed'
 })()`

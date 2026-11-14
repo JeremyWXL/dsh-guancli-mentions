@@ -9,7 +9,8 @@ import { buildProbeScript } from '../src/probe.js'
 
 const clientPath = new URL('../client.js', import.meta.url)
 const source = readFileSync(clientPath, 'utf8')
-const script = buildProbeScript()
+const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
+const script = buildProbeScript().replace(/__PROBE_VERSION__/gu, pkg.version)
 const pattern = /const PROBE_SCRIPT = [\s\S]*?;\n\/\/ __PROBE_SCRIPT_INLINED__\n/
 if (!pattern.test(source)) {
   throw new Error('PROBE_SCRIPT anchor missing in client.js (expected `const PROBE_SCRIPT = …;` followed by // __PROBE_SCRIPT_INLINED__)')
