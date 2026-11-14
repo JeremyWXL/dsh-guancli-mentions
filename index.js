@@ -98,6 +98,8 @@ class Runtime {
     this.latestDashboard = undefined
     /** Latest DOM recon report (selectors stayed empty). */
     this.domProbe = undefined
+    /** Latest watcher self-report. */
+    this.probeState = undefined
   }
 
   /** @returns the shared guancli runner. */
@@ -287,7 +289,12 @@ async function dispatch(runtime, action, input) {
   if (action === 'pageUrl') return { url: await resourceUrl(runtime, input) }
   if (action === 'context.publish') return publishDashboardContext(runtime, input)
   if (action === 'context.domProbe') return storeDomProbe(runtime, input)
-  if (action === 'debug.dom') return runtime.domProbe === undefined ? { report: null, at: null } : { ...runtime.domProbe }
+  if (action === 'debug.dom') {
+    return {
+      domProbe: runtime.domProbe?.report ?? null,
+      probeState: runtime.probeState?.report ?? null,
+    }
+  }
   throw new MentionError('UNKNOWN_ACTION', `不支持的动作：${String(action)}`, 404)
 }
 
@@ -355,8 +362,9 @@ function storeDomProbe(runtime, input) {
   }
   const size = Buffer.byteLength(JSON.stringify(report), 'utf8')
   if (size > 48 * 1024) throw new MentionError('REPORT_TOO_LARGE', 'DOM 侦察报告超过 48 KiB', 413)
-  runtime.domProbe = { report, at: Date.now() }
-  return { accepted: true, bytes: size }
+  const slot = report.kind === 'probe-state' ? 'probeState' : 'domProbe'
+  runtime[slot] = { report, at: Date.now() }
+  return { accepted: true, bytes: size, slot }
 }
 
 /**

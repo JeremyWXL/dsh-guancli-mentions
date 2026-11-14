@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.10
+
+- `debug.dom` 分槽返回 `{domProbe, probeState}`：watcher 状态与 DOM 侦察不再互相覆盖；probe-state 增加 `probeVersion`（从注入脚本提取），一眼看出 webview 里跑的是哪版探针。
+
 ## 0.5.9
 
 - 探针宽口径采集按真实 DOM 侦察结果精确化：
