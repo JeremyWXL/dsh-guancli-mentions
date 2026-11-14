@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.0
+
+**侧边栏看板实时状态（一二期合并交付）**——在 DSH 内置浏览器里操作观远看板，对话能跟上你的手势：
+
+- **探针注入**（client）：轮询发现侧边栏 webview 加载了已鉴权环境的 BI 页面后，通过 `webview.executeJavaScript` 注入看板探针（单源 `src/probe.js`，经 `probe.script` RPC 下发）。探针监听 BI 前端广播的 `GUANDATA_DASHBOARD_CONTEXT` 运行时消息（pageId、页面名、选中筛选器含字段 targets、聚焦卡片），降级走 DOM 读取；600ms 防抖后经 `console-message` 事件回传 renderer，再经 `context.publish` 上报 Host。全程失败静默降级。
+- **`guancli_dashboard_context` 工具**（新）：模型读取当前看板实时状态；快照超过 5 分钟标注 stale。
+- **pre-step 自动注入**：用户消息命中"当前看板/这张看板/现在的筛选/聚焦卡片"等线索时，自动附加看板状态上下文（带不可信警告与工具使用约定）。
+- **筛选自动合并**（`guancli_analyze_dataset` 新增 `withDashboardFilters`）：把探针读到的选中筛选映射到目标数据集字段并 AND 进查询——优先使用 BI 运行时消息携带的字段 targets，DOM 降级数据按筛选器名称匹配；无法映射的项在 `dashboardFiltersSkipped` 中说明原因，绝不静默丢弃；用户显式筛选同名字段时不覆盖。
+- **environments RPC 返回环境 URL**，供探针按 BI host 匹配注入目标。
+- 修复（工作区既有改动）：composer 提交时对 chip 走所属 source 的 codec 序列化，为 `@` 引用 source 补齐 `codec`（此前发送会报 `slash: no serializer for reference source "guancli"`）。
+
 ## 0.4.0
 
 - 引用直连侧边栏：已发送消息中的看板/数据集 `@` 引用渲染为可点击链接（📊/🗂️ 图标），点击后通过 `guancli url` 解析 BI 前端地址并在右侧栏内置浏览器中打开（`sidebarRight.openTab('browser', { params: { url } })`）。

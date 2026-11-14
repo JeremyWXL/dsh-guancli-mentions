@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict'
-import test from 'node:test'
+import test, { afterEach } from 'node:test'
 import { readFileSync } from 'node:fs'
+
+/** Effect cleanups leaked by harness() modules (probe intervals and the like). */
+const globalCleanups = []
+afterEach(() => {
+  while (globalCleanups.length > 0) globalCleanups.pop()()
+})
 
 /** Load the browser module body with a fake module loader, React, locale, and trigger service. */
 function loadClientModule() {
@@ -29,10 +35,15 @@ function loadClientModule() {
 /** Build one client context that captures dictionaries, the source, and slot nodes. */
 function harness() {
   const body = loadClientModule()
-  const captured = { dictionaries: undefined, source: undefined, rules: [], nodes: [] }
+  const captured = { dictionaries: undefined, source: undefined, rules: [], nodes: [], cleanups: [] }
   const ctx = {
     effect(run) {
-      return run()
+      const cleanup = run()
+      if (typeof cleanup === 'function') {
+        captured.cleanups.push(cleanup)
+        globalCleanups.push(cleanup)
+      }
+      return cleanup
     },
     inject(_services, callback) {
       callback({
@@ -287,4 +298,61 @@ test('every locale dictionary carries the new asset.open keys', () => {
     assert.equal(typeof dict['asset.open'], 'string')
     assert.equal(typeof dict['asset.openFailed'], 'string')
   }
+})
+
+
+// #region dashboard probe watcher
+
+test('the probe watcher injects into BI webviews and forwards console contexts', async () => {
+  const webviews = []
+  const published = []
+  const requests = []
+  const handlers = new Map()
+  const webview = {
+    getURL: () => 'https://demo.guandata.com/page/g8a4f06e5ad614b7e996ffb2',
+    addEventListener(name, fn) {
+      handlers.set(name, fn)
+    },
+    async executeJavaScript(script) {
+      webviews.push(script)
+      return 'installed'
+    },
+  }
+  const originalDocument = globalThis.document
+  globalThis.document = { querySelectorAll: () => [webview] }
+  try {
+    await withFetch(async (_url, init) => {
+      const body = JSON.parse(init.body)
+      requests.push(body.action)
+      if (body.action === 'probe.script') return { json: async () => ({ ok: true, data: { script: '(() => "installed")()' } }) }
+      if (body.action === 'environments') {
+        return { json: async () => ({ ok: true, data: { environments: [{ name: 'demo', url: 'https://demo.guandata.com' }] } }) }
+      }
+      published.push(body.input.context)
+      return { json: async () => ({ ok: true, data: { accepted: true } }) }
+    }, async () => {
+      const { captured } = harness()
+      await new Promise((resolve) => setImmediate(resolve))
+      await new Promise((resolve) => setImmediate(resolve))
+      assert.ok(webviews.length > 0, 'probe script must be injected into the BI webview')
+      // Simulate the guest page emitting one context line.
+      handlers.get('console-message')({
+        message: '__GUANCLI_DASHBOARD_CONTEXT__' + JSON.stringify({
+          pageId: 'g8a4f06e5ad614b7e996ffb2',
+          pageName: '销售分析',
+          url: 'https://demo.guandata.com/page/g8a4f06e5ad614b7e996ffb2',
+          selectors: [],
+          focusedCardId: '',
+          capturedAt: 1730000000000,
+        }),
+      })
+      await new Promise((resolve) => setImmediate(resolve))
+      for (const cleanup of captured.cleanups) cleanup()
+    })
+  } finally {
+    globalThis.document = originalDocument
+  }
+  assert.deepEqual(published.map((context) => context.pageId), ['g8a4f06e5ad614b7e996ffb2'])
+  assert.ok(requests.includes('probe.script'))
+  assert.ok(requests.includes('context.publish'))
 })

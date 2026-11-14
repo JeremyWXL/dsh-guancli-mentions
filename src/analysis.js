@@ -792,3 +792,137 @@ export function fitBudget(payload, budgetBytes = RESULT_BUDGET_BYTES) {
 }
 
 // #endregion
+
+// #region dashboard context merging
+
+/** Map BI selector operators onto planner filter operators. */
+const SELECTOR_OP_MAP = {
+  EQ: 'eq',
+  NE: 'ne',
+  IN: 'in',
+  BT: 'between',
+  GT: 'gt',
+  GE: 'gte',
+  LT: 'lt',
+  LE: 'lte',
+  CONTAINS: 'contains',
+}
+
+/** Numeric comparisons need real numbers; these convert from BI strings. */
+const NUMERIC_OPS = new Set(['gt', 'gte', 'lt', 'lte', 'between'])
+
+/**
+ * Map dashboard selectors onto filters for one target dataset.
+ *
+ * Resolution order per selector:
+ *  1. Runtime targets (`targets[].dsId === datasetId`) — the BI frontend
+ *     names the exact bound field.
+ *  2. Name match against the dataset fields (DOM-fallback selectors only
+ *     carry a display name).
+ * Anything unresolvable lands in `skipped` with a reason — never dropped
+ * silently.
+ * @param context - probe-captured dashboard context.
+ * @param datasetId - dataset being analyzed.
+ * @param fields - dataset field metadata (whitelist).
+ * @param explicitFields - fields the caller already filtered on explicitly.
+ * @returns `{ filters, skipped, notes }` in planner-filter shape.
+ */
+export function dashboardFiltersForDataset(context, datasetId, fields, explicitFields = []) {
+  const filters = []
+  const skipped = []
+  const notes = []
+  const fieldNames = new Set((fields ?? []).map((field) => field.name))
+  const explicit = new Set(explicitFields)
+  const seen = new Set()
+
+  for (const selector of context?.selectors ?? []) {
+    const rawOp = String(selector.operator ?? '').toUpperCase()
+    const op = SELECTOR_OP_MAP[rawOp]
+    if (op === undefined) {
+      skipped.push({ selector: selectorName(selector), reason: `操作符 ${rawOp || '空'} 不支持自动合并` })
+      continue
+    }
+    const rawValues = (Array.isArray(selector.values) ? selector.values : []).slice(0, 20)
+    let value
+    if (op === 'between') {
+      if (rawValues.length !== 2) {
+        skipped.push({ selector: selectorName(selector), reason: 'between 需要两个值' })
+        continue
+      }
+      value = rawValues.map(Number)
+      if (value.some((item) => !Number.isFinite(item))) {
+        skipped.push({ selector: selectorName(selector), reason: 'between 的值不是数值' })
+        continue
+      }
+    } else if (op === 'in') {
+      if (rawValues.length === 0) {
+        skipped.push({ selector: selectorName(selector), reason: 'in 没有选中值' })
+        continue
+      }
+      value = rawValues.map(String)
+    } else if (NUMERIC_OPS.has(op)) {
+      value = Number(rawValues[0])
+      if (!Number.isFinite(value)) {
+        skipped.push({ selector: selectorName(selector), reason: `${rawOp} 的选中值不是数值` })
+        continue
+      }
+    } else {
+      value = String(rawValues[0] ?? '')
+      if (value === '') {
+        skipped.push({ selector: selectorName(selector), reason: '没有选中值' })
+        continue
+      }
+    }
+
+    const candidates = []
+    for (const target of selector.targets ?? []) {
+      if (String(target.dsId ?? '') === String(datasetId) && target.name) candidates.push(String(target.name))
+    }
+    if (candidates.length === 0 && !Array.isArray(selector.targets)) {
+      const name = selectorName(selector)
+      if (fieldNames.has(name)) candidates.push(name)
+    }
+    if (candidates.length === 0) {
+      skipped.push({ selector: selectorName(selector), reason: '无法映射到该数据集的字段（缺少 targets，名称也不匹配）' })
+      continue
+    }
+    for (const field of [...new Set(candidates)]) {
+      if (!fieldNames.has(field)) {
+        skipped.push({ selector: selectorName(selector), field, reason: '字段不在数据集字段清单中' })
+        continue
+      }
+      if (explicit.has(field)) {
+        skipped.push({ selector: selectorName(selector), field, reason: '该字段已有显式筛选，看板值不覆盖' })
+        continue
+      }
+      const key = `${field}:${op}:${JSON.stringify(value)}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      filters.push({ field, op, value })
+    }
+    const granularity = selector.sourceField?.granularity
+    if (typeof granularity === 'string' && granularity !== '' && filters.length > 0) {
+      notes.push(`筛选「${selectorName(selector)}」带 ${granularity} 粒度，已按原始值合并`)
+    }
+  }
+  return { filters, skipped, notes }
+}
+
+/**
+ * @param selector - probe selector entry.
+ * @returns best-effort display name.
+ */
+function selectorName(selector) {
+  return String(selector?.name ?? selector?.selectorId ?? '未知筛选器')
+}
+
+/**
+ * Whether a dashboard context is fresh enough to act on.
+ * @param capturedAt - probe timestamp.
+ * @param now - injectable clock.
+ * @returns true when within the freshness window.
+ */
+export function isContextFresh(capturedAt, now = Date.now()) {
+  const at = Number(capturedAt)
+  return Number.isFinite(at) && at > 0 && now - at <= 5 * 60_000
+}

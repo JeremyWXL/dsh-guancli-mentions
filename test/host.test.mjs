@@ -160,11 +160,15 @@ test('health reports version, gateway, environment count, and tool state', async
   assert.equal(body.data.environmentCount, 3)
 })
 
-test('environments action lists authenticated names and the CLI default', async () => {
+test('environments action lists authenticated names, urls, and the CLI default', async () => {
   const { call } = await boot()
   const { body } = await call({ action: 'environments' })
   assert.equal(body.data.defaultProfile, 'demo')
-  assert.deepEqual(body.data.environments, ['Public', 'demo', 'babycare'])
+  assert.deepEqual(body.data.environments, [
+    { name: 'Public', url: 'https://app.guandata.com' },
+    { name: 'demo', url: 'https://demo.guandata.com' },
+    { name: 'babycare', url: 'https://data-bi.babycare.com' },
+  ])
 })
 
 test('an empty query explains itself with the active environment and the others', async () => {
@@ -479,4 +483,106 @@ test('pageUrl rejects missing input and reports resolution failures', async () =
   })
   assert.equal(failed.status, 500)
   assert.equal(failed.body.error.code, 'URL_RESOLVE_FAILED')
+})
+
+// #region dashboard context (probe → tools → pre-step → merge)
+
+const PROBE_CONTEXT = {
+  pageId: 'g8a4f06e5ad614b7e996ffb2',
+  pageName: '销售分析',
+  url: 'https://demo.guandata.com/page/g8a4f06e5ad614b7e996ffb2',
+  selectors: [{
+    selectorId: 'sel_1',
+    name: '门店',
+    operator: 'EQ',
+    values: ['S0001'],
+    targets: [{ dsId: 'ds_demo', cdId: 'cd_1', fdId: 'fd_1', name: '门店ID' }],
+  }],
+  focusedCardId: 'cd1234567890abcdef123456',
+  capturedAt: Date.now(),
+}
+
+test('probe.script serves the injectable probe and context.publish stores it', async () => {
+  const booted = await boot()
+  const script = await booted.call({ action: 'probe.script' })
+  assert.match(script.body.data.script, /GUANDATA_DASHBOARD_CONTEXT/u)
+  const accepted = await booted.call({ action: 'context.publish', input: { context: PROBE_CONTEXT } })
+  assert.equal(accepted.body.data.accepted, true)
+  const rejected = await booted.call({ action: 'context.publish', input: { context: { pageId: 'bad' } } })
+  assert.equal(rejected.status, 400)
+})
+
+test('guancli_dashboard_context reports the live snapshot and its freshness', async () => {
+  const booted = await boot()
+  await booted.call({ action: 'context.publish', input: { context: PROBE_CONTEXT } })
+  const result = await booted.tool('guancli_dashboard_context').execute({}, { agent: { id: 'session-1' } })
+  assert.equal(result.connected, true)
+  assert.equal(result.fresh, true)
+  assert.equal(result.pageId, PROBE_CONTEXT.pageId)
+  assert.equal(result.selectors.length, 1)
+  const empty = await boot()
+  const missing = await empty.tool('guancli_dashboard_context').execute({}, { agent: { id: 'session-2' } })
+  assert.equal(missing.connected, false)
+})
+
+test('pre-step injects the dashboard snapshot when the user cites the live board', async () => {
+  const booted = await boot()
+  await booted.call({ action: 'context.publish', input: { context: PROBE_CONTEXT } })
+  const listener = booted.preStep()
+  const userMessage = {
+    id: 'm1',
+    role: 'user',
+    source: { kind: 'user' },
+    content: [{ type: 'text', text: '帮我分析当前看板筛选下的销售情况' }],
+  }
+  const decision = await listener(
+    { agent: { id: 'session-1' }, signal: undefined },
+    async () => ({ kind: 'accept', messages: [userMessage] }),
+  )
+  assert.equal(decision.messages.length, 2)
+  const contextMessage = decision.messages[1]
+  assert.equal(contextMessage.source.form, 'dashboard')
+  assert.match(contextMessage.content[0].text, /当前看板状态/u)
+  assert.match(contextMessage.content[0].text, /withDashboardFilters=true/u)
+  // Without cues the message passes through untouched.
+  const plain = await listener(
+    { agent: { id: 'session-1' }, signal: undefined },
+    async () => ({ kind: 'accept', messages: [{ ...userMessage, content: [{ type: 'text', text: ' unrelated ' }] }] }),
+  )
+  assert.equal(plain.messages.length, 1)
+})
+
+test('analyze_dataset merges live dashboard filters when asked', async () => {
+  const booted = await boot()
+  await booted.call({ action: 'context.publish', input: { context: PROBE_CONTEXT } })
+  const calls = stubRunner(booted, { sqlRows: [{ '门店区域': '华东', m1: 100 }] })
+  const result = await booted.tool('guancli_analyze_dataset').execute({
+    profile: 'demo',
+    datasetId: 'ds_demo',
+    by: ['SKU编码'],
+    metric: [{ field: '销售金额', agg: 'sum' }],
+    withDashboardFilters: true,
+  }, { agent: { id: 'session-1' }, signal: undefined })
+  assert.deepEqual(result.dashboardFiltersApplied, [
+    { field: '门店ID', op: 'eq', value: 'S0001' },
+  ])
+  assert.match(calls.executeSql[0].sql, /`门店ID` = 'S0001'/u)
+  const skipped = result.dashboardFiltersSkipped ?? []
+  assert.equal(skipped.length, 0)
+})
+
+test('analyze_dataset skips the merge gracefully without a live context', async () => {
+  const booted = await boot()
+  const calls = stubRunner(booted, { sqlRows: [] })
+  const result = await booted.tool('guancli_analyze_dataset').execute({
+    profile: 'demo',
+    datasetId: 'ds_demo',
+    by: ['门店ID'],
+    metric: [{ field: '销售金额', agg: 'sum' }],
+    withDashboardFilters: true,
+  }, { agent: { id: 'session-2' }, signal: undefined })
+  assert.deepEqual(result.dashboardFiltersApplied, [])
+  assert.equal(result.dashboardFiltersSkipped.length, 1)
+  assert.match(result.dashboardFiltersSkipped[0].reason, /未捕获/u)
+  assert.ok(calls.executeSql.length > 0, 'analysis still runs without a dashboard context')
 })

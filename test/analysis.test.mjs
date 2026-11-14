@@ -342,3 +342,78 @@ test('planAnalysis is deterministic for identical input', () => {
   const b = planAnalysis(validSpec, FIELDS, NOW)
   assert.deepEqual(a, b)
 })
+
+// #region dashboard context merging
+
+import { dashboardFiltersForDataset, isContextFresh } from '../src/analysis.js'
+
+const RUNTIME_SELECTOR = {
+  selectorId: 'sel_1',
+  name: '区域',
+  operator: 'IN',
+  values: ['华东', '华南'],
+  targets: [{ dsId: 'ds_1', cdId: 'cd_1', fdId: 'fd_1', name: '门店区域' }],
+}
+const DOM_SELECTOR = { selectorId: 'sel_2', name: '门店ID', operator: 'EQ', values: ['S0001'] }
+
+test('dashboardFiltersForDataset maps runtime targets onto whitelist fields', () => {
+  const { filters, skipped } = dashboardFiltersForDataset(
+    { selectors: [RUNTIME_SELECTOR] },
+    'ds_1',
+    [{ name: '门店区域', role: 'dimension' }, { name: '销售金额', role: 'measure' }],
+  )
+  assert.deepEqual(filters, [{ field: '门店区域', op: 'in', value: ['华东', '华南'] }])
+  assert.deepEqual(skipped, [])
+})
+
+test('dashboardFiltersForDataset falls back to selector-name matching', () => {
+  const { filters } = dashboardFiltersForDataset(
+    { selectors: [DOM_SELECTOR] },
+    'ds_1',
+    [{ name: '门店ID', role: 'dimension' }],
+  )
+  assert.deepEqual(filters, [{ field: '门店ID', op: 'eq', value: 'S0001' }])
+})
+
+test('dashboardFiltersForDataset skips unresolvable, unknown, and explicit fields', () => {
+  const { filters, skipped } = dashboardFiltersForDataset(
+    { selectors: [
+      RUNTIME_SELECTOR,
+      { selectorId: 'sel_x', name: '神秘筛选', operator: 'EQ', values: ['a'] },
+      { selectorId: 'sel_n', name: '区域', operator: 'XX', values: ['a'] },
+    ] },
+    'ds_1',
+    [{ name: '门店区域', role: 'dimension' }, { name: '销售金额', role: 'measure' }],
+    ['门店区域'],
+  )
+  assert.deepEqual(filters, [])
+  assert.equal(skipped.length, 3)
+  assert.match(skipped[0].reason, /已有显式筛选/u)
+  assert.match(skipped[1].reason, /无法映射/u)
+  assert.match(skipped[2].reason, /不支持/u)
+})
+
+test('dashboardFiltersForDataset handles numeric operators and between', () => {
+  const { filters, skipped } = dashboardFiltersForDataset(
+    { selectors: [
+      { selectorId: 'a', name: '销售金额', operator: 'GE', values: ['100'] },
+      { selectorId: 'b', name: '销售数量', operator: 'BT', values: ['5', '50'] },
+      { selectorId: 'c', name: '销售数量', operator: 'GT', values: ['abc'] },
+    ] },
+    'ds_1',
+    [{ name: '销售金额', role: 'measure' }, { name: '销售数量', role: 'measure' }],
+  )
+  assert.deepEqual(filters, [
+    { field: '销售金额', op: 'gte', value: 100 },
+    { field: '销售数量', op: 'between', value: [5, 50] },
+  ])
+  assert.equal(skipped.length, 1)
+  assert.match(skipped[0].reason, /不是数值/u)
+})
+
+test('isContextFresh bounds the acting window', () => {
+  const now = 1_730_000_000_000
+  assert.equal(isContextFresh(now - 60_000, now), true)
+  assert.equal(isContextFresh(now - 6 * 60_000, now), false)
+  assert.equal(isContextFresh(0, now), false)
+})

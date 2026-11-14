@@ -513,6 +513,172 @@ window.__ModuleLoader__.load({
       )
     }
 
+    /** Console prefix the probe logs with (mirrors src/probe.js). */
+    const PROBE_LOG_PREFIX = '__GUANCLI_DASHBOARD_CONTEXT__'
+
+    /**
+     * Parse one console line from the injected probe (browser copy of the
+     * node-side parser, kept dependency-free for the module bundle).
+     * @param text - console message text.
+     * @returns the context object or null.
+     */
+    function parseProbeOutputText(text) {
+      const raw = String(text ?? '')
+      if (!raw.startsWith(PROBE_LOG_PREFIX)) return null
+      try {
+        const value = JSON.parse(raw.slice(PROBE_LOG_PREFIX.length))
+        if (value === null || typeof value !== 'object' || Array.isArray(value)) return null
+        if (!/^[a-z0-9]{24}$/i.test(String(value.pageId ?? ''))) return null
+        return {
+          pageId: String(value.pageId),
+          pageName: String(value.pageName ?? ''),
+          url: String(value.url ?? ''),
+          selectors: Array.isArray(value.selectors) ? value.selectors : [],
+          focusedCardId: String(value.focusedCardId ?? ''),
+          capturedAt: Number(value.capturedAt ?? 0),
+        }
+      } catch (_error) {
+        return null
+      }
+    }
+
+    /**
+     * Match a URL's host against authenticated environment URLs.
+     * @param rawUrl - webview URL.
+     * @param environments - environment entries with urls.
+     * @returns the environment name or null.
+     */
+    function matchEnvironmentName(rawUrl, environments) {
+      let host = ''
+      try {
+        host = new URL(String(rawUrl ?? '')).hostname.toLowerCase()
+      } catch (_error) {
+        return null
+      }
+      if (host === '') return null
+      for (const environment of environments ?? []) {
+        try {
+          const envHost = new URL(String(environment.url ?? '')).hostname.toLowerCase()
+          if (envHost !== '' && (host === envHost || host.endsWith(`.${envHost}`))) {
+            return String(environment.name)
+          }
+        } catch (_error) {
+          // Skip malformed entries.
+        }
+      }
+      return null
+    }
+
+    /**
+     * Watch the sidebar webview: inject the dashboard probe into Guandata BI
+     * pages and forward captured contexts to the Host. All failures are
+     * swallowed — the watcher must never break the page.
+     * @param ctx - client root context.
+     */
+    function startDashboardProbe(ctx) {
+      let probeScript = ''
+      let environments = []
+      let environmentsAt = 0
+      let setupPromise = null
+      let lastPublished = ''
+      const attached = new WeakSet()
+
+      /** Fetch the probe script and authenticated environments once, cached. */
+      async function ensureSetup() {
+        if (setupPromise !== null) return setupPromise
+        setupPromise = (async () => {
+          try {
+            if (probeScript === '') {
+              const scriptResult = await rpc('probe.script', {})
+              if (typeof scriptResult.data?.script === 'string') probeScript = scriptResult.data.script
+            }
+            if (Date.now() - environmentsAt > 5 * 60 * 1000 || environments.length === 0) {
+              const envResult = await rpc('environments', {})
+              if (Array.isArray(envResult.data?.environments)) {
+                environments = envResult.data.environments.filter((entry) => typeof entry?.url === 'string' && entry.url !== '')
+                environmentsAt = Date.now()
+              }
+            }
+          } catch (error) {
+            console.warn('[guancli-mentions] probe setup failed:', error)
+          } finally {
+            setupPromise = null
+          }
+        })()
+        return setupPromise
+      }
+
+      /** @param webview - an Electron <webview> element. @returns its current URL. */
+      function webviewUrl(webview) {
+        try {
+          if (typeof webview.getURL === 'function') return webview.getURL()
+          return String(webview.src || '')
+        } catch (_error) {
+          return ''
+        }
+      }
+
+      /** Push one context snapshot to the Host, deduplicated by content. */
+      async function publish(context) {
+        const serialized = JSON.stringify(context)
+        if (serialized === lastPublished) return
+        lastPublished = serialized
+        try {
+          await rpc('context.publish', { context })
+        } catch (error) {
+          console.warn('[guancli-mentions] context publish failed:', error)
+        }
+      }
+
+      /** Parse one console line and forward probe output. */
+      function onConsoleMessage(event) {
+        const text = String(event?.message ?? '')
+        const context = parseProbeOutputText(text)
+        if (context !== null) publish(context)
+      }
+
+      /** Best-effort probe (re-)injection; the script self-guards duplicates. */
+      async function inject(webview) {
+        if (probeScript === '') return
+        try {
+          await webview.executeJavaScript(probeScript)
+        } catch (_error) {
+          // Guest not ready yet; the next navigation or scan retries.
+        }
+      }
+
+      /** Wire listeners once per webview element, then inject. */
+      async function attach(webview) {
+        if (attached.has(webview)) return
+        attached.add(webview)
+        webview.addEventListener('console-message', onConsoleMessage)
+        webview.addEventListener('did-navigate', () => { inject(webview) })
+        webview.addEventListener('did-navigate-in-page', () => { inject(webview) })
+        await inject(webview)
+      }
+
+      /** One sweep: find BI webviews and attach the probe. */
+      async function scan() {
+        try {
+          await ensureSetup()
+          if (probeScript === '' || environments.length === 0) return
+          for (const webview of document.querySelectorAll('webview')) {
+            const env = matchEnvironmentName(webviewUrl(webview), environments)
+            if (env === null) continue
+            await attach(webview)
+          }
+        } catch (_error) {
+          // Never break the host page.
+        }
+      }
+
+      const interval = setInterval(scan, 2000)
+      scan()
+      return () => {
+        clearInterval(interval)
+      }
+    }
+
     return {
       inject: ['locale'],
       apply(ctx) {
@@ -564,6 +730,8 @@ window.__ModuleLoader__.load({
             'guancli-mentions: asset link node',
           )
         })
+
+        ctx.effect(() => startDashboardProbe(ctx), 'guancli-mentions: dashboard probe')
       },
     }
   },
