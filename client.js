@@ -264,10 +264,34 @@ window.__ModuleLoader__.load({
     /** Cached result of the one-time Host capability probe. */
     let hostReady
 
+    /** Lowest Host generation that serves environment-scoped candidates. */
+    const MIN_HOST_VERSION = '0.2.0'
+
+    /**
+     * Compare dotted versions numerically: `version` >= `minimum`.
+     * @param version - reported Host version.
+     * @param minimum - lowest accepted version.
+     * @returns whether the Host generation satisfies the floor.
+     */
+    function versionAtLeast(version, minimum) {
+      const parse = (text) => String(text).split('.').map((part) => {
+        const numeric = Number.parseInt(part, 10)
+        return Number.isFinite(numeric) ? numeric : 0
+      })
+      const left = parse(version)
+      const right = parse(minimum)
+      for (let index = 0; index < Math.max(left.length, right.length); index += 1) {
+        const a = left[index] ?? 0
+        const b = right[index] ?? 0
+        if (a !== b) return a > b
+      }
+      return true
+    }
+
     /**
      * The Host half must be the environment-scoped generation; a replaced
      * package keeps serving the previous module until the app restarts.
-     * @returns whether the Host answered with the expected generation.
+     * @returns whether the Host answered with an accepted generation.
      */
     async function ensureHost() {
       if (hostReady !== undefined) return hostReady
@@ -275,7 +299,7 @@ window.__ModuleLoader__.load({
       // A probe that never reached the host says nothing about its generation;
       // the real call reports that failure with its own row.
       if (result.data === undefined) return true
-      hostReady = typeof result.data.version === 'string' && result.data.version.startsWith('0.2.')
+      hostReady = typeof result.data.version === 'string' && versionAtLeast(result.data.version, MIN_HOST_VERSION)
       return hostReady
     }
 

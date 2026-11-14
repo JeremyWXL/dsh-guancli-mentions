@@ -134,6 +134,13 @@ test('a stale host generation asks for the restart it needs', async () => {
   assert.deepEqual(JSON.parse(rows[0].value), { kind: 'hint' })
 })
 
+test('current and future host generations pass the version floor', async () => {
+  for (const version of ['0.2.0', '0.3.0', '0.10.1', '1.0.0']) {
+    const rows = await answer({ state: 'need-query', env: 'demo', environments: ['demo'] }, version)
+    assert.match(rows[0].name, /关键词/u, `version ${version} must pass the gate`)
+  }
+})
+
 test('an empty query explains how to search and which environments exist', async () => {
   const rows = await answer({
     state: 'need-query',
