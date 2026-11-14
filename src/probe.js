@@ -19,6 +19,9 @@ export const PROBE_MARKER = '__guancliDashboardProbe'
 /** Console line prefix the renderer listener scans for. */
 export const PROBE_LOG_PREFIX = '__GUANCLI_DASHBOARD_CONTEXT__'
 
+/** Console line prefix for DOM recon reports (selector list stayed empty). */
+export const DOM_PROBE_PREFIX = '__GUANCLI_DOM_PROBE__'
+
 /** How long a captured context stays "fresh" for tools and pre-step. */
 export const CONTEXT_FRESH_MS = 5 * 60_000
 
@@ -39,6 +42,7 @@ export function buildProbeScript() {
   const ROOT_SELECTOR = '[data-selector-id],[data-cd-id],[data-card-id],[data-component-id]'
   const MAX_SELECTORS = ${String(MAX_SELECTORS)}
   const MAX_VALUES = ${String(MAX_VALUES)}
+  const DOM_PROBE_PREFIX = '${DOM_PROBE_PREFIX}'
   let focusedCardId = ''
   let runtimeContext = null
   let timer = null
@@ -98,10 +102,23 @@ export function buildProbeScript() {
       const values = selectedValues(root)
       if (!values.length) continue
       seen.add(selectorId)
-      selections.push({ selectorId, values, displayValues: values, operator: values.length > 1 ? 'IN' : 'EQ' })
+      selections.push({ selectorId, values, displayValues: values, operator: values.length > 1 ? 'IN' : 'EQ', origin: 'dom' })
       if (selections.length >= MAX_SELECTORS) break
     }
     return selections
+  }
+
+  /**
+   * Pick the selector list: the runtime broadcast wins only when it actually
+   * carries entries — an empty runtime array must fall through to the DOM,
+   * which reflects what the user sees. Entries are tagged with 'origin'.
+   */
+  function mergedSelectors() {
+    const runtime = runtimeContext && typeof runtimeContext === 'object' ? runtimeContext : {}
+    if (Array.isArray(runtime.selectors) && runtime.selectors.length > 0) {
+      return runtime.selectors.slice(0, MAX_SELECTORS).map((selector) => ({ origin: 'runtime', ...selector }))
+    }
+    return domSelectors()
   }
 
   function safeUrl() {
@@ -121,9 +138,55 @@ export function buildProbeScript() {
       pageId: currentPageId,
       pageName: cleanText(runtime.pageName || document.querySelector('[data-page-name],h1')?.textContent || document.title),
       url: safeUrl(),
-      selectors: Array.isArray(runtime.selectors) ? runtime.selectors.slice(0, MAX_SELECTORS) : domSelectors(),
+      selectors: mergedSelectors(),
       focusedCardId: String(runtime.focusedCardId || focusedCardId || ''),
       capturedAt: Date.now(),
+    }
+  }
+
+  /** Last DOM recon emission, throttled to one per 30 seconds. */
+  let lastDomProbeAt = 0
+
+  /**
+   * Recon pass over unknown BI DOM: input/select inventory, data-* attribute
+   * names, and candidate listbox/filter containers. Sent only while the
+   * selector list stays empty so the plugin author can adapt the real DOM.
+   */
+  function domProbe() {
+    const inputs = []
+    for (const el of document.querySelectorAll('input, select, textarea')) {
+      inputs.push({
+        tag: el.tagName.toLowerCase(),
+        type: el.type || '',
+        name: el.getAttribute('name') || '',
+        placeholder: (el.getAttribute('placeholder') || '').slice(0, 60),
+        value: String(el.value ?? '').slice(0, 60),
+        cls: String(el.className || '').slice(0, 80),
+        label: String(el.getAttribute('aria-label') || (el.closest('label')?.textContent || '')).slice(0, 60),
+        data: Object.keys(el.dataset || {}).slice(0, 8),
+      })
+      if (inputs.length >= 40) break
+    }
+    const dataNames = new Set()
+    for (const el of document.querySelectorAll('[data-selector-id],[data-cd-id],[data-card-id],[data-component-id],[data-page-id]')) {
+      for (const attr of el.attributes) if (attr.name.startsWith('data-')) dataNames.add(attr.name)
+    }
+    const containers = []
+    for (const el of document.querySelectorAll('[role="listbox"],[role="combobox"],[class*="select"],[class*="selector"],[class*="filter"]')) {
+      containers.push({
+        cls: String(el.className || '').slice(0, 80),
+        text: cleanText(el.textContent).slice(0, 80),
+        role: el.getAttribute('role') || '',
+      })
+      if (containers.length >= 25) break
+    }
+    return {
+      kind: 'dom-probe',
+      url: safeUrl(),
+      title: cleanText(document.title),
+      dataNames: [...dataNames],
+      inputs,
+      containers,
     }
   }
 
@@ -131,9 +194,14 @@ export function buildProbeScript() {
     const value = snapshot()
     if (!ID_PATTERN.test(value.pageId)) return
     const serialized = JSON.stringify(value)
-    if (serialized === lastPublished) return
-    lastPublished = serialized
-    console.log('${PROBE_LOG_PREFIX}' + serialized)
+    if (serialized !== lastPublished) {
+      lastPublished = serialized
+      console.log('${PROBE_LOG_PREFIX}' + serialized)
+    }
+    if (value.selectors.length === 0 && Date.now() - lastDomProbeAt > 30_000) {
+      lastDomProbeAt = Date.now()
+      console.log('${DOM_PROBE_PREFIX}' + JSON.stringify(domProbe()).slice(0, 16 * 1024))
+    }
   }
 
   function schedule() {

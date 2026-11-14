@@ -513,8 +513,9 @@ window.__ModuleLoader__.load({
       )
     }
 
-    /** Console prefix the probe logs with (mirrors src/probe.js). */
+    /** Console prefixes the probe logs with (mirror src/probe.js). */
     const PROBE_LOG_PREFIX = '__GUANCLI_DASHBOARD_CONTEXT__'
+    const DOM_PROBE_PREFIX = '__GUANCLI_DOM_PROBE__'
 
     /**
      * Parse one console line from the injected probe (browser copy of the
@@ -630,11 +631,24 @@ window.__ModuleLoader__.load({
         }
       }
 
-      /** Parse one console line and forward probe output. */
+      /** Parse one console line and forward probe output or DOM recon. */
       function onConsoleMessage(event) {
         const text = String(event?.message ?? '')
         const context = parseProbeOutputText(text)
-        if (context !== null) publish(context)
+        if (context !== null) {
+          publish(context)
+          return
+        }
+        if (text.startsWith(DOM_PROBE_PREFIX)) {
+          try {
+            const report = JSON.parse(text.slice(DOM_PROBE_PREFIX.length))
+            rpc('context.domProbe', { report }).catch((error) => {
+              console.warn('[guancli-mentions] dom probe upload failed:', error)
+            })
+          } catch (_error) {
+            // Malformed recon line; ignore.
+          }
+        }
       }
 
       /** Best-effort probe (re-)injection; the script self-guards duplicates. */

@@ -586,3 +586,16 @@ test('analyze_dataset skips the merge gracefully without a live context', async 
   assert.match(result.dashboardFiltersSkipped[0].reason, /未捕获/u)
   assert.ok(calls.executeSql.length > 0, 'analysis still runs without a dashboard context')
 })
+
+
+test('domProbe report round-trips through context.domProbe and debug.dom', async () => {
+  const booted = await boot()
+  const report = { kind: 'dom-probe', url: 'https://demo.guandata.com/page/x', inputs: [], containers: [] }
+  const stored = await booted.call({ action: 'context.domProbe', input: { report } })
+  assert.equal(stored.body.data.accepted, true)
+  const debug = await booted.call({ action: 'debug.dom' })
+  assert.deepEqual(debug.body.data.report, report)
+  assert.equal(typeof debug.body.data.at, 'number')
+  const invalid = await booted.call({ action: 'context.domProbe', input: { report: 'nope' } })
+  assert.equal(invalid.status, 400)
+})

@@ -97,6 +97,8 @@ class Runtime {
     this.sqlSupport = new Map()
     /** Latest dashboard context captured by the webview probe (single slot). */
     this.latestDashboard = undefined
+    /** Latest DOM recon report (selectors stayed empty). */
+    this.domProbe = undefined
   }
 
   /** @returns the shared guancli runner. */
@@ -285,6 +287,8 @@ async function dispatch(runtime, action, input) {
   if (action === 'candidates') return await candidates(runtime, input)
   if (action === 'pageUrl') return { url: await resourceUrl(runtime, input) }
   if (action === 'context.publish') return publishDashboardContext(runtime, input)
+  if (action === 'context.domProbe') return storeDomProbe(runtime, input)
+  if (action === 'debug.dom') return runtime.domProbe === undefined ? { report: null, at: null } : { ...runtime.domProbe }
   if (action === 'probe.script') return { script: buildProbeScript() }
   throw new MentionError('UNKNOWN_ACTION', `不支持的动作：${String(action)}`, 404)
 }
@@ -338,6 +342,23 @@ function publishDashboardContext(runtime, input) {
   }
   runtime.latestDashboard = { context: normalized }
   return { accepted: true, revision: normalized.capturedAt }
+}
+
+/**
+ * Store a DOM recon report from the probe (selector list stayed empty).
+ * @param runtime - plugin runtime.
+ * @param input - `{ report }`.
+ * @returns confirmation.
+ */
+function storeDomProbe(runtime, input) {
+  const report = input?.report
+  if (report === null || typeof report !== 'object' || Array.isArray(report)) {
+    throw new MentionError('INVALID_REPORT', 'report 必须是对象', 400)
+  }
+  const size = Buffer.byteLength(JSON.stringify(report), 'utf8')
+  if (size > 48 * 1024) throw new MentionError('REPORT_TOO_LARGE', 'DOM 侦察报告超过 48 KiB', 413)
+  runtime.domProbe = { report, at: Date.now() }
+  return { accepted: true, bytes: size }
 }
 
 /**

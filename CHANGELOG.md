@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.1
+
+- 修复探针关键 bug：BI 运行时广播的 `selectors` 为**空数组**时，探针直接采用空数组、DOM 兜底被短路（`Array.isArray([])` 为真）。改为：运行时 selectors 非空才采用，否则回退 DOM；两侧数据均带 `origin: 'runtime'|'dom'` 标记。用户遇到的"动态维度状态未捕获"即此 bug——探针读到了看板的默认配置而非 DOM 实际选中值。
+- 新增 DOM 侦察：selectors 持续为空时，探针每 30 秒上报一份页面 DOM 侦察报告（input/select 清单、data-* 属性名、候选容器），经 `context.domProbe` 存入 Host，可用 `debug.dom` action 读取——用于适配不同 BI 版本的 DOM 结构。
+
 ## 0.5.0
 
 **侧边栏看板实时状态（一二期合并交付）**——在 DSH 内置浏览器里操作观远看板，对话能跟上你的手势：
