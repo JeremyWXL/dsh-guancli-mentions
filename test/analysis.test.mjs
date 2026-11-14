@@ -417,3 +417,24 @@ test('isContextFresh bounds the acting window', () => {
   assert.equal(isContextFresh(now - 6 * 60_000, now), false)
   assert.equal(isContextFresh(0, now), false)
 })
+
+// #region cross-dataset skip hints
+
+test('dashboardFiltersForDataset names the foreign dataset and same-name field hint', () => {
+  const { filters, skipped } = dashboardFiltersForDataset(
+    { selectors: [{
+      selectorId: 'sel_f',
+      name: '省份',
+      operator: 'EQ',
+      values: ['北京市'],
+      targets: [{ dsId: 'other_ds', fdId: 'fd_x', name: '省份' }],
+    }] },
+    'ds_1',
+    [{ name: '省份', role: 'dimension' }, { name: '销售金额', role: 'measure' }],
+  )
+  assert.deepEqual(filters, [])
+  assert.equal(skipped.length, 1)
+  assert.match(skipped[0].reason, /其他数据集/u)
+  assert.match(skipped[0].reason, /other_ds/u)
+  assert.match(skipped[0].reason, /同名不同 ID/u)
+})

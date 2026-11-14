@@ -32,6 +32,16 @@ test('buildProbeScript returns a guarded IIFE string', () => {
   new Function(script)
 })
 
+// #region client sync
+
+test('the client bundle inlines the exact probe script from src/probe.js', async () => {
+  const { readFileSync } = await import('node:fs')
+  const clientSource = readFileSync(new URL('../client.js', import.meta.url), 'utf8')
+  const match = /const PROBE_SCRIPT = ("(?:[^"\\]|\\.)*");\n/.exec(clientSource)
+  assert.ok(match, 'client.js must carry an inlined PROBE_SCRIPT literal')
+  assert.equal(JSON.parse(match[1]), buildProbeScript())
+})
+
 // #region parse
 
 test('parseProbeOutput accepts a well-formed probe line', () => {

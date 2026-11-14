@@ -109,16 +109,66 @@ export function buildProbeScript() {
   }
 
   /**
-   * Pick the selector list: the runtime broadcast wins only when it actually
-   * carries entries — an empty runtime array must fall through to the DOM,
-   * which reflects what the user sees. Entries are tagged with 'origin'.
+   * Wide-pass capture for BI builds whose filter widgets carry no
+   * data-* identity: aggregate selected pills per combobox, plus valued
+   * inputs and checked options. Fingerprinted by container class+label,
+   * origin-tagged 'dom-wide'; noise is accepted over silence — the merge
+   * step whitelists by field name anyway.
+   */
+  function wideSelectors() {
+    const out = []
+    const seen = new Set()
+    const push = (fingerprint, values, extra) => {
+      const cleaned = values.map(cleanText).filter((value) => value !== '')
+      if (cleaned.length === 0 || seen.has(fingerprint)) return
+      seen.add(fingerprint)
+      out.push({
+        selectorId: 'wide-' + String(out.length + 1),
+        values: cleaned.slice(0, MAX_VALUES),
+        displayValues: cleaned.slice(0, MAX_VALUES),
+        operator: cleaned.length > 1 ? 'IN' : 'EQ',
+        origin: 'dom-wide',
+        ...extra,
+      })
+    }
+    for (const box of document.querySelectorAll('[role="combobox"],.ant-select,[class*="Select"],[class*="selector"]')) {
+      const pills = [...box.querySelectorAll('.ant-select-selection-item,[aria-selected="true"]')]
+        .map((el) => cleanText(el.getAttribute('title') || el.textContent))
+        .filter((value) => value !== '' && !/^(全部|全选|请选择|搜索)$/iu.test(value))
+      if (pills.length === 0) continue
+      const label = cleanText(
+        box.closest('[class*="filter"],[class*="Filter"],[class*="selector"],[data-selector-id]')?.querySelector('[class*="title"],[class*="label"],label')?.textContent
+        || box.getAttribute('aria-label') || '',
+      ).slice(0, 40)
+      push('box:' + String(box.className || '').slice(0, 60) + ':' + label, pills, { name: label || undefined })
+    }
+    for (const input of document.querySelectorAll('input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"])')) {
+      const value = cleanText(input.value)
+      if (value === '') continue
+      const label = cleanText(input.getAttribute('placeholder') || input.getAttribute('aria-label') || input.name || '').slice(0, 40)
+      push('input:' + String(input.name || input.id || input.className || '').slice(0, 60) + ':' + label, [value], { name: label || undefined })
+    }
+    for (const select of document.querySelectorAll('select')) {
+      const values = [...select.selectedOptions].map((option) => cleanText(option.value || option.textContent)).filter((value) => value !== '')
+      if (values.length === 0) continue
+      push('select:' + String(select.name || select.id || '').slice(0, 60), values, { name: cleanText(select.name || '').slice(0, 40) || undefined })
+    }
+    return out.slice(0, MAX_SELECTORS)
+  }
+
+  /**
+   * Pick the selector list: the runtime broadcast wins only when it
+   * actually carries entries, then the identified-widget DOM pass, then
+   * the wide pass. Entries are origin-tagged.
    */
   function mergedSelectors() {
     const runtime = runtimeContext && typeof runtimeContext === 'object' ? runtimeContext : {}
     if (Array.isArray(runtime.selectors) && runtime.selectors.length > 0) {
       return runtime.selectors.slice(0, MAX_SELECTORS).map((selector) => ({ origin: 'runtime', ...selector }))
     }
-    return domSelectors()
+    const dom = domSelectors()
+    if (dom.length > 0) return dom
+    return wideSelectors()
   }
 
   function safeUrl() {

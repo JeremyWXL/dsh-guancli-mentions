@@ -16,7 +16,6 @@
 
 import { readFileSync } from 'node:fs'
 import { GuancliRunner } from './src/cli.js'
-import { buildProbeScript } from './src/probe.js'
 import {
   ANALYZE_DEFAULT_LIMIT,
   DICTIONARY_LIMIT,
@@ -289,7 +288,6 @@ async function dispatch(runtime, action, input) {
   if (action === 'context.publish') return publishDashboardContext(runtime, input)
   if (action === 'context.domProbe') return storeDomProbe(runtime, input)
   if (action === 'debug.dom') return runtime.domProbe === undefined ? { report: null, at: null } : { ...runtime.domProbe }
-  if (action === 'probe.script') return { script: buildProbeScript() }
   throw new MentionError('UNKNOWN_ACTION', `不支持的动作：${String(action)}`, 404)
 }
 
@@ -1140,7 +1138,7 @@ async function registerTools(runtime) {
       },
       sort: { type: 'json', description: '排序，如 {field:"m1",direction:"desc"}；field 为分组维度名或度量别名 m1/m2' },
       limit: { type: 'integer', description: `返回组数，默认 ${String(ANALYZE_DEFAULT_LIMIT)}，硬上限 500` },
-      withDashboardFilters: { type: 'boolean', description: '为 true 时，把侧边栏看板当前选中的筛选自动 AND 进查询（仅映射到本数据集字段的项生效，未映射的在 dashboardFiltersSkipped 中说明）' },
+      withDashboardFilters: { type: 'boolean', description: '为 true 时，把侧边栏看板当前选中的筛选自动 AND 进查询（仅映射到本数据集字段的项生效；筛选器绑定其他数据集时会在 dashboardFiltersSkipped 说明，不静默跨数据集合并）' },
     },
     output: jsonOutput,
     execute: async (args, exec) => {
@@ -1153,7 +1151,7 @@ async function registerTools(runtime) {
 
   ctx.tools.register(defineTool({
     name: 'guancli_dashboard_context',
-    description: '读取当前会话侧边栏浏览器里看板的实时状态：pageId、页面名、选中筛选器及值、聚焦卡片。用户说"当前看板/这张看板/现在的筛选"时先调用确认；分析时配合 guancli_analyze_dataset 的 withDashboardFilters 使用。',
+    description: '读取侧边栏浏览器里看板的实时状态：pageId、页面名、选中筛选器及值、聚焦卡片。用户说“当前看板/现在的筛选”时先调用确认。注意：画布上的老式筛选器卡片（DS_ELEMENTS）与全局筛选栏的可采集性因 BI 版本而异（看 origin 标记：runtime=BI 广播，dom/dom-wide=页面读取）；selectors 为空不代表用户没筛选，可请用户口述值后走显式 filters。',
     parameters: {},
     output: jsonOutput,
     execute: async (_args, exec) => {

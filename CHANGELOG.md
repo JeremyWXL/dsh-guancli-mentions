@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.2
+
+- **探针脚本内联到 client bundle**（`scripts/sync-probe.mjs` 从 src/probe.js 生成）：探针迭代从此只需安装 + 刷新页面，不再要求重启 Host；`probe.script` RPC 移除。同步由测试强制（client 内联值必须与 buildProbeScript() 逐字符一致）。
+- **宽口径采集（第三信源）**：运行时消息与 `[data-selector-id]` DOM 都落空时，自动进入宽口径——按 combobox 聚合选中胶囊、有值 input、原生 select，指纹为容器 class+邻近标签，origin 标记 `dom-wide`。噪音优于沉默：合并层本就有字段白名单把关。
+- 跨数据集筛选跳过原因增强：点名目标 dsId；字段名与目标数据集相同时提示"疑似同名不同 ID 数据集（口径可能不同）"。
+- 工具描述写明采集边界（画布 DS_ELEMENTS 可采集性因 BI 版本而异、selectors 为空不等于没有筛选）。
+
 ## 0.5.1
 
 - 修复探针关键 bug：BI 运行时广播的 `selectors` 为**空数组**时，探针直接采用空数组、DOM 兜底被短路（`Array.isArray([])` 为真）。改为：运行时 selectors 非空才采用，否则回退 DOM；两侧数据均带 `origin: 'runtime'|'dom'` 标记。用户遇到的"动态维度状态未捕获"即此 bug——探针读到了看板的默认配置而非 DOM 实际选中值。

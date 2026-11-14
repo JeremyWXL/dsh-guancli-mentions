@@ -883,7 +883,16 @@ export function dashboardFiltersForDataset(context, datasetId, fields, explicitF
       if (fieldNames.has(name)) candidates.push(name)
     }
     if (candidates.length === 0) {
-      skipped.push({ selector: selectorName(selector), reason: '无法映射到该数据集的字段（缺少 targets，名称也不匹配）' })
+      const foreign = (selector.targets ?? []).filter((target) => String(target.dsId ?? '') !== String(datasetId))
+      if (Array.isArray(selector.targets) && selector.targets.length > 0 && foreign.length > 0) {
+        const names = foreign.map((target) => target.name).filter(Boolean)
+        const hint = names.length > 0 && names.some((name) => fieldNames.has(name))
+          ? '；字段名与目标数据集相同，疑似同名不同 ID 的数据集（口径可能不同），如确认一致请手动加筛选'
+          : ''
+        skipped.push({ selector: selectorName(selector), reason: `筛选器绑定的是其他数据集（dsId ${foreign[0].dsId ?? '未知'}）${hint}` })
+      } else {
+        skipped.push({ selector: selectorName(selector), reason: '无法映射到该数据集的字段（缺少 targets，名称也不匹配）' })
+      }
       continue
     }
     for (const field of [...new Set(candidates)]) {

@@ -324,7 +324,6 @@ test('the probe watcher injects into BI webviews and forwards console contexts',
     await withFetch(async (_url, init) => {
       const body = JSON.parse(init.body)
       requests.push(body.action)
-      if (body.action === 'probe.script') return { json: async () => ({ ok: true, data: { script: '(() => "installed")()' } }) }
       if (body.action === 'environments') {
         return { json: async () => ({ ok: true, data: { environments: [{ name: 'demo', url: 'https://demo.guandata.com' }] } }) }
       }
@@ -334,7 +333,8 @@ test('the probe watcher injects into BI webviews and forwards console contexts',
       const { captured } = harness()
       await new Promise((resolve) => setImmediate(resolve))
       await new Promise((resolve) => setImmediate(resolve))
-      assert.ok(webviews.length > 0, 'probe script must be injected into the BI webview')
+      assert.ok(webviews.length > 0, 'inlined probe script must be injected into the BI webview')
+      assert.ok(webviews[0].includes('GUANDATA_DASHBOARD_CONTEXT'), 'injected code is the real probe')
       // Simulate the guest page emitting one context line.
       handlers.get('console-message')({
         message: '__GUANCLI_DASHBOARD_CONTEXT__' + JSON.stringify({
@@ -353,6 +353,6 @@ test('the probe watcher injects into BI webviews and forwards console contexts',
     globalThis.document = originalDocument
   }
   assert.deepEqual(published.map((context) => context.pageId), ['g8a4f06e5ad614b7e996ffb2'])
-  assert.ok(requests.includes('probe.script'))
+  assert.ok(requests.includes('environments'))
   assert.ok(requests.includes('context.publish'))
 })

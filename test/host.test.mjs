@@ -502,10 +502,8 @@ const PROBE_CONTEXT = {
   capturedAt: Date.now(),
 }
 
-test('probe.script serves the injectable probe and context.publish stores it', async () => {
+test('context.publish accepts a valid probe context and rejects bad input', async () => {
   const booted = await boot()
-  const script = await booted.call({ action: 'probe.script' })
-  assert.match(script.body.data.script, /GUANDATA_DASHBOARD_CONTEXT/u)
   const accepted = await booted.call({ action: 'context.publish', input: { context: PROBE_CONTEXT } })
   assert.equal(accepted.body.data.accepted, true)
   const rejected = await booted.call({ action: 'context.publish', input: { context: { pageId: 'bad' } } })
