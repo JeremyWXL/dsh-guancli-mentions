@@ -14,7 +14,25 @@
  *    still analyze what the user mentioned.
  */
 
+import { readFileSync } from 'node:fs'
 import { GuancliRunner } from './src/cli.js'
+import {
+  ANALYZE_DEFAULT_LIMIT,
+  DICTIONARY_LIMIT,
+  SAMPLE_LIMIT,
+  aggregateSample,
+  buildAggregationSql,
+  buildFieldProfileSql,
+  buildSummary,
+  buildTimeRangeSql,
+  filterSample,
+  fitBudget,
+  parseDatasetMeta,
+  planAnalysis,
+  runInsights,
+  suggestFields,
+  suggestQuestions,
+} from './src/analysis.js'
 import {
   CONTEXT_SOURCE_KIND,
   MAX_MENTIONS_PER_MESSAGE,
@@ -35,7 +53,8 @@ export const name = 'guancli-mentions'
 export const inject = ['webServer', 'tools']
 
 const ROUTE = '/guancli-mentions/v1/rpc'
-const VERSION = '0.2.1'
+/** Version mirrors package.json — single source of truth. */
+const VERSION = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version
 /** Package name; also the Client module id and the Loader row target. */
 const PACKAGE = '@local/dsh-guancli-mentions'
 const MAX_BODY_BYTES = 64 * 1024
@@ -69,6 +88,10 @@ class Runtime {
     this.environmentCache = { at: 0, value: { environments: [], defaultProfile: undefined } }
     this.sessionEnvironment = new Map()
     this.toolState = 'pending'
+    /** `${profile}:${datasetId}` → { at, meta } — doubles as the field whitelist. */
+    this.datasetCache = new Map()
+    /** `sql:${profile}` → { at, supported, reason } — lazy execute-sql capability. */
+    this.sqlSupport = new Map()
   }
 
   /** @returns the shared guancli runner. */
@@ -101,6 +124,7 @@ class Runtime {
  */
 export function apply(ctx) {
   const runtime = new Runtime(ctx)
+  ctx.__mentionsRuntime = runtime
   ctx.effect(
     () => ctx.webServer.register({
       kind: 'exact',
@@ -237,6 +261,10 @@ async function dispatch(runtime, action, input) {
       clientModule,
       environmentCount,
       tools: runtime.toolState,
+      sqlSupport: Object.fromEntries([...runtime.sqlSupport.entries()].map(([key, value]) => [
+        key.replace(/^sql:/u, ''),
+        value.supported === true ? 'yes' : value.supported === false ? `no (${value.reason})` : 'unknown',
+      ])),
     }
   }
   if (action === 'environments') {
@@ -426,6 +454,420 @@ async function describe(gateway, ref, signal) {
 
 // #endregion
 
+// #region analysis tools
+
+const DATASET_CACHE_TTL_MS = 60_000
+const SQL_SUPPORT_TTL_MS = 5 * 60_000
+
+/**
+ * Fetch and cache dataset metadata; the cache doubles as the field whitelist
+ * for analysis validation.
+ * @param runtime - plugin runtime.
+ * @param profile - authenticated environment.
+ * @param datasetId - dataset id.
+ * @param signal - cancellation.
+ * @returns parsed metadata ({ name, rowCount, fields, ... }).
+ */
+async function ensureDatasetMeta(runtime, profile, datasetId, signal) {
+  const key = `${profile}:${datasetId}`
+  const cached = runtime.datasetCache.get(key)
+  if (cached !== undefined && Date.now() - cached.at < DATASET_CACHE_TTL_MS) return cached.meta
+  const text = await runtime.cli().datasetMeta({ profile, datasetId, signal })
+  const meta = parseDatasetMeta(text)
+  if (meta.fields.length === 0) {
+    throw new MentionError('DATASET_META_EMPTY', `无法读取数据集 ${datasetId} 的字段信息（可能无权限或数据集不存在）`)
+  }
+  runtime.datasetCache.set(key, { at: Date.now(), meta })
+  return meta
+}
+
+/**
+ * Read the lazy execute-sql capability for one environment.
+ * @param runtime - plugin runtime.
+ * @param profile - environment name.
+ * @returns `{ supported: boolean|null, reason?: string }`.
+ */
+function sqlCapability(runtime, profile) {
+  const hit = runtime.sqlSupport.get(`sql:${profile}`)
+  if (hit === undefined) return { supported: null }
+  return { supported: hit.supported, ...hit.reason === undefined ? {} : { reason: hit.reason } }
+}
+
+/**
+ * Record an execute-sql outcome so later calls pick the right path.
+ * @param runtime - plugin runtime.
+ * @param profile - environment name.
+ * @param supported - whether the query succeeded.
+ * @param reason - failure hint.
+ */
+function recordSqlOutcome(runtime, profile, supported, reason = undefined) {
+  runtime.sqlSupport.set(`sql:${profile}`, {
+    at: Date.now(),
+    supported,
+    ...(reason === undefined ? {} : { reason }),
+  })
+}
+
+/**
+ * Whether a failure looks like "SQL 开关未开" rather than a query error.
+ * @param message - error message.
+ * @returns true when the environment likely forbids execute-sql.
+ */
+function looksLikeSqlDisabled(message) {
+  return /高级\s*SQL|execute-sql|not enabled|未开启|权限|forbidden|403/iu.test(String(message ?? ''))
+}
+
+/**
+ * asset_overview: dataset path — fields with roles, scale, samples, time span.
+ * @param runtime - plugin runtime.
+ * @param profile - environment.
+ * @param datasetId - dataset id.
+ * @param signal - cancellation.
+ * @returns overview payload.
+ */
+async function overviewDataset(runtime, profile, datasetId, signal) {
+  const meta = await ensureDatasetMeta(runtime, profile, datasetId, signal)
+  let samples = {}
+  try {
+    const rows = await runtime.cli().previewJson({ profile, datasetId, limit: 3, signal })
+    if (Array.isArray(rows)) {
+      for (const field of meta.fields) {
+        const seen = []
+        for (const row of rows) {
+          const value = row[field.name]
+          if (value === null || value === undefined || value === '') continue
+          if (!seen.includes(String(value)) && seen.length < 2) seen.push(String(value))
+        }
+        if (seen.length > 0) samples[field.name] = seen
+      }
+    }
+  } catch {
+    samples = {}
+  }
+  let timeRange = null
+  const timeField = meta.fields.find((field) => field.role === 'time')
+  if (timeField !== undefined && sqlCapability(runtime, profile).supported !== false) {
+    try {
+      const span = await runtime.cli().executeSql({
+        profile, datasetId,
+        sql: buildTimeRangeSql(meta.name, timeField.name),
+        limit: 1,
+        signal,
+      })
+      const first = Array.isArray(span) ? span[0] : undefined
+      if (first !== undefined && (first.min !== undefined || first.max !== undefined)) {
+        timeRange = { field: timeField.name, min: first.min ?? null, max: first.max ?? null }
+        recordSqlOutcome(runtime, profile, true)
+      }
+    } catch (error) {
+      if (looksLikeSqlDisabled(messageOf(error))) recordSqlOutcome(runtime, profile, false, messageOf(error))
+    }
+  }
+  return {
+    profile,
+    type: 'dataset',
+    id: datasetId,
+    name: meta.name,
+    rowCount: meta.rowCount ?? null,
+    updatedAt: meta.updatedAt || null,
+    fields: meta.fields.map((field) => ({
+      ...field,
+      ...(samples[field.name] === undefined ? {} : { samples: samples[field.name] }),
+    })),
+    ...(timeRange === null ? {} : { timeRange }),
+    summary: buildSummary(meta.fields),
+    suggestedQuestions: suggestQuestions(meta.fields),
+  }
+}
+
+/**
+ * asset_overview: page path — card structure via the Guandata plugin's inspect.
+ * @param runtime - plugin runtime.
+ * @param profile - environment.
+ * @param pageId - page id.
+ * @param signal - cancellation.
+ * @returns overview payload.
+ */
+async function overviewPage(runtime, profile, pageId, signal) {
+  const detail = await requireGateway(runtime).rpc('assets.inspect', {
+    profile, type: 'page', id: pageId,
+  }, signal)
+  return {
+    profile,
+    type: 'page',
+    id: pageId,
+    ...boundDetail(detail, 20_000),
+    note: '看板由卡片组成；分析时先选卡片（cardId），再用 guancli_analyze_dataset 分析其底层数据集，或 phase 2 的 guancli_card_analyze。',
+  }
+}
+
+/**
+ * field_profile: enum dictionary for dimensions, stats for measures.
+ * @param runtime - plugin runtime.
+ * @param profile - environment.
+ * @param datasetId - dataset id.
+ * @param fieldName - field to profile.
+ * @param signal - cancellation.
+ * @returns profile payload.
+ */
+async function fieldProfile(runtime, profile, datasetId, fieldName, signal) {
+  const meta = await ensureDatasetMeta(runtime, profile, datasetId, signal)
+  const field = meta.fields.find((candidate) => candidate.name === fieldName)
+  if (field === undefined) {
+    throw new MentionError(
+      'FIELD_NOT_FOUND',
+      `字段「${fieldName}」不存在${(() => {
+        const hints = suggestFields(fieldName, meta.fields)
+        return hints.length > 0 ? `（你是不是想用：${hints.join('、')}？）` : ''
+      })()}`,
+      404,
+    )
+  }
+  if (sqlCapability(runtime, profile).supported !== false) {
+    try {
+      return await fieldProfileViaSql(runtime, profile, datasetId, meta, field, signal)
+    } catch (error) {
+      if (!looksLikeSqlDisabled(messageOf(error))) throw error
+      recordSqlOutcome(runtime, profile, false, messageOf(error))
+    }
+  }
+  return await fieldProfileViaSample(runtime, profile, datasetId, field, signal)
+}
+
+/**
+ * Server-side field profile.
+ * @returns dictionary and/or stats payload.
+ */
+async function fieldProfileViaSql(runtime, profile, datasetId, meta, field, signal) {
+  const { dictionarySql, statsSql } = buildFieldProfileSql(meta.name, field)
+  const dictionary = await runtime.cli().executeSql({
+    profile, datasetId, sql: dictionarySql, limit: DICTIONARY_LIMIT + 1, signal,
+  })
+  recordSqlOutcome(runtime, profile, true)
+  const rows = (Array.isArray(dictionary) ? dictionary : []).map((row) => ({
+    value: row.value ?? null,
+    count: Number(row.cnt ?? 0),
+  }))
+  const payload = {
+    profile, datasetId, field: field.name, role: field.role, scope: 'full',
+    dictionary: rows.slice(0, DICTIONARY_LIMIT),
+    dictionaryTruncated: rows.length > DICTIONARY_LIMIT,
+    distinctCount: rows.length > DICTIONARY_LIMIT ? `>${String(DICTIONARY_LIMIT)}` : rows.length,
+    highCardinality: rows.length > DICTIONARY_LIMIT,
+  }
+  if (statsSql !== null) {
+    const statsRows = await runtime.cli().executeSql({
+      profile, datasetId, sql: statsSql, limit: 1, signal,
+    })
+    const first = Array.isArray(statsRows) ? statsRows[0] : undefined
+    if (first !== undefined) {
+      payload.stats = {
+        total: Number(first.total ?? 0),
+        nulls: Number(first.nulls ?? 0),
+        min: first.min ?? null,
+        max: first.max ?? null,
+        avg: first.avg ?? null,
+      }
+    }
+  }
+  return payload
+}
+
+/**
+ * Sample-based field profile (SQL unsupported).
+ * @returns same payload shape with `scope: "sample"`.
+ */
+async function fieldProfileViaSample(runtime, profile, datasetId, field, signal) {
+  const rows = await runtime.cli().previewJson({
+    profile, datasetId, limit: SAMPLE_LIMIT, columns: [field.name], signal,
+  })
+  const list = Array.isArray(rows) ? rows : []
+  const counts = new Map()
+  let numericCount = 0
+  let sum = 0
+  let min = Infinity
+  let max = -Infinity
+  let nulls = 0
+  for (const row of list) {
+    const raw = row[field.name]
+    if (raw === null || raw === undefined || raw === '') {
+      nulls += 1
+      continue
+    }
+    const text = String(raw)
+    counts.set(text, (counts.get(text) ?? 0) + 1)
+    const numeric = Number(raw)
+    if (Number.isFinite(numeric)) {
+      numericCount += 1
+      sum += numeric
+      min = Math.min(min, numeric)
+      max = Math.max(max, numeric)
+    }
+  }
+  const dictionary = [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, DICTIONARY_LIMIT)
+    .map(([value, count]) => ({ value, count }))
+  return {
+    profile, datasetId, field: field.name, role: field.role, scope: 'sample', sampleSize: list.length,
+    dictionary,
+    dictionaryTruncated: counts.size > DICTIONARY_LIMIT,
+    distinctCount: counts.size,
+    highCardinality: counts.size > DICTIONARY_LIMIT,
+    ...(field.role === 'measure' && numericCount > 0
+      ? {
+        stats: {
+          total: list.length, nulls,
+          min: min === Infinity ? null : min,
+          max: max === -Infinity ? null : max,
+          avg: sum / numericCount,
+        },
+      }
+      : {}),
+    note: '当前环境不支持服务端 SQL，画像基于前 ' + String(list.length) + ' 行样本，不代表全量。',
+  }
+}
+
+/**
+ * analyze_dataset: validated, budgeted, insight-bearing aggregation.
+ * @param runtime - plugin runtime.
+ * @param args - tool arguments.
+ * @param signal - cancellation.
+ * @returns analysis payload.
+ */
+async function analyzeDataset(runtime, args, signal) {
+  const profile = String(args.profile)
+  const datasetId = String(args.datasetId)
+  await assertProfile(runtime, profile)
+  const meta = await ensureDatasetMeta(runtime, profile, datasetId, signal)
+  const { errors, plan } = planAnalysis(args, meta.fields)
+  if (plan === null) throw new MentionError('INVALID_ANALYSIS', `分析参数有问题：\n${planErrorText(errors)}`, 400)
+
+  const byLabel = plan.by.length > 0 ? `按 ${plan.by.map((dim) => dim.name).join('、')} 分组的前 ${String(plan.limit)} 组` : '整体'
+  let rows = []
+  let scope = 'full'
+  let truncated = false
+  let degradedReason = null
+
+  if (sqlCapability(runtime, profile).supported !== false) {
+    try {
+      const { sql, labels } = buildAggregationSql(meta.name, plan)
+      const result = await runtime.cli().executeSql({
+        profile, datasetId, sql, limit: plan.limit, signal,
+      })
+      recordSqlOutcome(runtime, profile, true)
+      rows = Array.isArray(result) ? result : []
+      if (plan.by.length > 0 && rows.length >= plan.limit) {
+        truncated = true
+      }
+      return finishAnalysis({
+        runtime, profile, datasetId, meta, plan, rows, scope, truncated,
+        sql, labels, degradedReason, byLabel,
+      })
+    } catch (error) {
+      const message = messageOf(error)
+      if (!looksLikeSqlDisabled(message)) {
+        throw new MentionError('ANALYZE_FAILED', `聚合查询失败：${message}（SQL 已按字段白名单生成，如持续失败请联系 BI 管理员）`)
+      }
+      recordSqlOutcome(runtime, profile, false, message)
+      degradedReason = message
+    }
+  } else {
+    degradedReason = sqlCapability(runtime, profile).reason ?? '环境不支持服务端 SQL'
+  }
+
+  // Degraded path: bounded sample + local aggregation.
+  const valueFilters = plan.filters.filter((filter) => filter.kind === 'value')
+  const cliFilters = [
+    ...valueFilters.map((filter) => sampleFilterText(filter)),
+    ...plan.filters.filter((filter) => filter.kind === 'time').flatMap((filter) => [
+      `${filter.field} GE ${filter.start}`,
+      `${filter.field} LE ${filter.end}`,
+    ]),
+  ]
+  const previewColumns = [
+    ...plan.by.map((dim) => dim.name),
+    ...plan.metrics.filter((metric) => metric.agg !== 'count').map((metric) => metric.field),
+    ...valueFilters.map((filter) => filter.field),
+  ]
+  const sample = await runtime.cli().previewJson({
+    profile, datasetId,
+    limit: SAMPLE_LIMIT,
+    columns: [...new Set(previewColumns)],
+    filters: cliFilters,
+    signal,
+  })
+  const sampleRows = filterSample(Array.isArray(sample) ? sample : [], plan.filters)
+  const aggregated = aggregateSample(sampleRows, plan)
+  scope = 'sample'
+  rows = aggregated.rows
+  truncated = aggregated.truncated
+  return finishAnalysis({
+    runtime, profile, datasetId, meta, plan, rows, scope, truncated,
+    sql: null, labels: null, degradedReason, byLabel, sampleSize: Array.isArray(sample) ? sample.length : 0,
+  })
+}
+
+/**
+ * Shared result shaping: insights, suggestions, budget enforcement.
+ * @returns final tool result.
+ */
+function finishAnalysis(context) {
+  const { runtime, profile, datasetId, meta, plan, rows, scope, truncated, sql, labels, degradedReason, byLabel } = context
+  const insights = runInsights(rows, plan.metrics, byLabel)
+  const suggestions = suggestQuestions(meta.fields, plan.by.map((dim) => dim.name))
+  const payload = {
+    profile, datasetId, datasetName: meta.name,
+    scope,
+    ...(scope === 'sample' ? { sampleSize: context.sampleSize ?? SAMPLE_LIMIT } : {}),
+    ...(degradedReason === null ? {} : { degradedReason }),
+    grouping: plan.by.map((dim) => dim.name),
+    metrics: plan.metrics.map((metric) => ({
+      alias: metric.alias,
+      ...(metric.agg === 'count' ? {} : { field: metric.field }),
+      agg: metric.agg,
+    })),
+    filtersApplied: plan.filters.map((filter) => filter.kind === 'time'
+      ? { field: filter.field, range: [filter.start, filter.end], label: filter.label }
+      : { field: filter.field, op: filter.op, value: filter.value }),
+    rowCount: rows.length,
+    rows,
+    truncated,
+    ...(truncated ? { truncationHint: '还有更多分组未返回：可加筛选缩小范围、减少分组维度，或调大 limit（硬上限 500）' } : {}),
+    ...(insights.length === 0 ? {} : { insights }),
+    ...(suggestions.length === 0 ? {} : { suggestedQuestions: suggestions }),
+    ...(sql === null ? {} : { sql }),
+    ...(labels === null ? {} : { columns: labels }),
+  }
+  const { payload: fitted, shed } = fitBudget(payload)
+  return shed.length === 0 ? fitted : { ...fitted, budgetNote: `结果超字节预算，已精简：${shed.join('；')}` }
+}
+
+/**
+ * Render plan validation errors for the model.
+ * @param errors - planAnalysis errors.
+ * @returns multi-line text.
+ */
+function planErrorText(errors) {
+  return errors.map((error) => {
+    const hints = Array.isArray(error.suggestions) && error.suggestions.length > 0
+      ? `（你是不是想用：${error.suggestions.join('、')}？）`
+      : ''
+    return `- ${error.message}${hints}`
+  }).join('\n')
+}
+
+/**
+ * Translate a value filter into `ds preview --filter` text.
+ * @param filter - normalized value filter.
+ * @returns CLI filter text.
+ */
+function sampleFilterText(filter) {
+  const value = Array.isArray(filter.value) ? filter.value.join(',') : String(filter.value)
+  const op = { eq: 'EQ', ne: 'NE', gt: 'GT', gte: 'GE', lt: 'LT', lte: 'LE', between: 'BT', in: 'IN', contains: 'CONTAINS' }[filter.op]
+  return `${filter.field} ${op} ${value}`
+}
+
 // #region query tools
 
 /**
@@ -452,6 +894,71 @@ async function registerTools(runtime) {
   }))
 
   ctx.tools.register(defineTool({
+    name: 'guancli_asset_overview',
+    description: '读取观远数据集或看板的业务总览：字段清单（维度/度量/时间角色）、数据规模、样例值、可回答的问题建议。分析任何数据集前先调用本工具；后续分析只能引用这里出现的字段。',
+    parameters: {
+      profile: { type: 'string', required: true, description: 'guancli 环境名，例如 demo' },
+      assetType: { type: 'string', required: true, enum: ['dataset', 'page'], description: '资产类型' },
+      assetId: { type: 'string', required: true, description: '数据集或看板 ID' },
+    },
+    output: jsonOutput,
+    execute: async (args, exec) => {
+      await assertProfile(runtime, args.profile)
+      if (args.assetType === 'page') return await overviewPage(runtime, args.profile, String(args.assetId), exec.signal)
+      return await overviewDataset(runtime, args.profile, String(args.assetId), exec.signal)
+    },
+    timeoutMs: 90_000,
+    isConcurrencySafe: () => true,
+  }))
+
+  ctx.tools.register(defineTool({
+    name: 'guancli_field_profile',
+    description: '查看单个字段的取值字典（如「渠道」有哪些值，含计数）或数值分布（min/max/avg）。写筛选条件或分组前调用，避免猜测取值。结果基于全量；环境不支持 SQL 时标注为样本口径。',
+    parameters: {
+      profile: { type: 'string', required: true, description: 'guancli 环境名' },
+      datasetId: { type: 'string', required: true, description: '数据集 ID' },
+      field: { type: 'string', required: true, description: '字段名（必须来自 guancli_asset_overview 的字段清单）' },
+    },
+    output: jsonOutput,
+    execute: async (args, exec) => {
+      await assertProfile(runtime, args.profile)
+      return await fieldProfile(runtime, args.profile, String(args.datasetId), String(args.field), exec.signal)
+    },
+    timeoutMs: 90_000,
+    isConcurrencySafe: () => true,
+  }))
+
+  ctx.tools.register(defineTool({
+    name: 'guancli_analyze_dataset',
+    description: `对数据集做聚合分析（求和/计数/平均/最大最小），按维度分组并支持业务筛选（如 {op:"last_n_days",days:90}）。聚合在观远 BI 侧完成，只返回统计结果，不受明细行数限制。回答「各门店销售额排名」「近90天哪个品类增长最快」类问题时优先用它，不要拉明细自行计算。by/metric/filters 的字段必须来自 guancli_asset_overview 的字段清单。`,
+    parameters: {
+      profile: { type: 'string', required: true, description: 'guancli 环境名' },
+      datasetId: { type: 'string', required: true, description: '数据集 ID' },
+      by: { type: 'array', items: { type: 'string' }, description: `分组维度（0-3 个），必须是 overview 中的 dimension 字段` },
+      metric: {
+        type: 'array',
+        required: true,
+        items: { type: 'json' },
+        description: '度量数组，如 [{field:"销售金额",agg:"sum"}]；agg 支持 sum/count/avg/min/max',
+      },
+      filters: {
+        type: 'array',
+        items: { type: 'json' },
+        description: '筛选数组，如 [{field:"门店ID",op:"eq",value:"S0001"}]；op 支持 eq/ne/gt/gte/lt/lte/between/in/contains 与 last_n_days/this_month/last_month/this_year/between_dates 时间快捷方式（可省略 field，自动用唯一时间字段）',
+      },
+      sort: { type: 'json', description: '排序，如 {field:"m1",direction:"desc"}；field 为分组维度名或度量别名 m1/m2' },
+      limit: { type: 'integer', description: `返回组数，默认 ${String(ANALYZE_DEFAULT_LIMIT)}，硬上限 500` },
+    },
+    output: jsonOutput,
+    execute: async (args, exec) => {
+      await assertProfile(runtime, args.profile)
+      return await analyzeDataset(runtime, args, exec.signal)
+    },
+    timeoutMs: 150_000,
+    isConcurrencySafe: () => true,
+  }))
+
+  ctx.tools.register(defineTool({
     name: 'guancli_asset_inspect',
     description: '读取一个已鉴权环境中的数据集或看板定义（字段、口径、页面卡片）。看板先 inspect 拿到 cardId，再用 guancli_card_preview 查询。',
     parameters: {
@@ -474,12 +981,12 @@ async function registerTools(runtime) {
 
   ctx.tools.register(defineTool({
     name: 'guancli_dataset_preview',
-    description: '预览一个已鉴权环境里的数据集行数据（只读，行数受硬上限约束）。dataset 引用默认用它。',
+    description: '仅用于验证字段含义或查看少量样例行，不要用本工具做统计分析——统计请用 guancli_analyze_dataset（聚合在 BI 侧完成，不受明细行数限制）。',
     parameters: {
       profile: { type: 'string', required: true, description: 'guancli 环境名' },
       datasetId: { type: 'string', required: true, description: '数据集 ID' },
       columns: { type: 'array', items: { type: 'string' }, description: '要返回的列；省略则返回全部（受环境权限限制）' },
-      limit: { type: 'integer', description: '返回行数，默认 50，硬上限 200' },
+      limit: { type: 'integer', description: '返回行数，默认 20，硬上限 200' },
     },
     output: jsonOutput,
     execute: async (args, exec) => {
@@ -498,12 +1005,12 @@ async function registerTools(runtime) {
 
   ctx.tools.register(defineTool({
     name: 'guancli_card_preview',
-    description: '在所属页面上下文中预览一张卡片的数据（只读，行数受硬上限约束）。page（看板）引用默认用它。',
+    description: '仅用于查看卡片少量样例行；卡片/看板的统计分析优先用 guancli_analyze_dataset 针对其底层数据集聚合。',
     parameters: {
       profile: { type: 'string', required: true, description: 'guancli 环境名' },
       pageId: { type: 'string', required: true, description: '卡片所属看板/页面 ID' },
       cardId: { type: 'string', required: true, description: '卡片 ID' },
-      limit: { type: 'integer', description: '返回行数，默认 50，硬上限 200' },
+      limit: { type: 'integer', description: '返回行数，默认 20，硬上限 200' },
     },
     output: jsonOutput,
     execute: async (args, exec) => {
@@ -551,7 +1058,7 @@ async function assertProfile(runtime, profile) {
  */
 function clampRows(value) {
   const numeric = Number(value)
-  if (!Number.isFinite(numeric) || numeric <= 0) return 50
+  if (!Number.isFinite(numeric) || numeric <= 0) return 20
   return Math.min(Math.floor(numeric), HARD_ROW_LIMIT)
 }
 

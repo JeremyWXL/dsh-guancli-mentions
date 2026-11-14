@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.0
+
+**内置分析方法集**（设计见 `docs/analysis-methods.md`）——查询即聚合，替代拉明细给模型算：
+
+- 新增 `guancli_asset_overview`：数据集/看板业务总览，字段按维度/度量/时间角色标注并附样例值、数据规模、时间跨度、建议问题。
+- 新增 `guancli_field_profile`：枚举字段取值字典（含计数）与数值字段分布；写筛选前先查，不再猜值。
+- 新增 `guancli_analyze_dataset`：语义化聚合分析。by/metric/filters/sort/limit 全部业务语言（支持 `last_n_days`/`this_month`/`between_dates` 等时间快捷方式），Host 校验字段白名单后生成 SQL 在 BI 侧聚合，110 万行实测 2 秒内返回 TopN；结果附自动洞察、建议下一步与可审计 SQL。
+- 量控：聚合行数默认 20/硬上限 500 + 64 KiB 字节预算双保险；字段不在白名单直接拒绝并给拼写建议；结果按序精简（建议→洞察→行）。
+- 体验：未指定排序时默认按首度量降序（排名类问题开箱即用）；时间快捷方式可省略字段（自动绑定唯一时间字段）；preview 工具降权为"仅验证字段含义"，默认行数收紧到 20。
+- 降级链：环境不支持服务端 SQL 时自动切到 500 行样本 + 本地聚合，结果标注 `scope: "sample"` 与原因；SQL 能力按环境惰性探测并在 health 中报告。
+- 修复：`between` 一词二义拆分为值操作符 `between` 与时间快捷方式 `between_dates`。
+
 ## 0.2.0
 
 - 授权模型改为**环境级**：不再要求会话绑定观远 Agent，只认 `guancli auth list` 里已鉴权的 BI 环境。

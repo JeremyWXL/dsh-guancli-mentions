@@ -31,17 +31,37 @@
 
 Host 在模型步骤前：解析 mention → 复核该环境仍处于鉴权状态 → 用该环境凭据 `inspect` 资产 → 改写为可读 `@名称` 并追加一条 `<referenced-assets>` 上下文（类型、环境、ID、字段口径，带不可信内容警告）。
 
-模型可用的只读工具：
+模型可用的只读工具（7 个）：
 
-- `guancli_environments`：列出已鉴权环境；
-- `guancli_asset_inspect`：读数据集/看板定义（看板拿到 cardId）；
-- `guancli_dataset_preview`：预览数据集行数据（默认 50 行，硬上限 200）；
-- `guancli_card_preview`：在页面上下文里预览卡片（同上）。
+**理解资产（先看清再提问）**
+- `guancli_asset_overview`：数据集/看板业务总览——字段按维度/度量/时间角色标注、附样例值、数据规模、时间跨度与建议问题。分析前必先调用。
+- `guancli_field_profile`：枚举字段取值字典（含计数）或数值分布。写筛选前先查，不再猜值。
+
+**业务分析（查询即聚合，核心）**
+- `guancli_analyze_dataset`：语义化聚合。`by` 分组 + `metric` 度量（sum/count/avg/min/max）+ 业务筛选（`last_n_days`/`this_month`/`between_dates` 等时间快捷方式）+ 排序 + 行数。聚合在 BI 侧完成，110 万行实测 2 秒内返回 TopN；结果附自动洞察、建议下一步与可审计 SQL。
+
+**环境与原语（保留）**
+- `guancli_environments` / `guancli_asset_inspect`：列环境；读原始定义。
+- `guancli_dataset_preview` / `guancli_card_preview`：⚠️ 仅用于验证字段含义或看样例行，**不要用于统计分析**（默认 20 行、硬上限 200）。
+
+分析调用示例：
+
+```json
+{
+  "profile": "demo", "datasetId": "ds_xx",
+  "by": ["门店ID"],
+  "metric": [{"field": "销售金额", "agg": "sum"}],
+  "filters": [{"field": "门店ID", "op": "in", "value": ["S0001"]}, {"op": "last_n_days", "days": 90}],
+  "limit": 10
+}
+```
+
+by/metric/filters 的字段必须来自 `guancli_asset_overview` 的字段清单；写错会拒绝并给出拼写建议。未指定排序时默认按首度量降序。
 
 ## 安全边界
 
 - 候选与校验都只认 `guancli auth list` 里有效的环境；不在其中的环境一律拒绝。
-- 只读：仅 `ds preview` / `card preview` / `ds get` / `page get`，没有 SQL、没有写入、没有 ETL。
+- 只读：`ds get` / `ds preview` / `page get` / `card preview`，以及插件自己生成并经字段白名单校验的聚合 SQL（模型不接触裸 SQL）；没有写入、没有 ETL。
 - 参数走数组 + `shell: false`；输出 2 MiB 上限；查询行数硬上限 200。
 - 本地 RPC 仅 Loopback + 同源 POST + JSON（≤64 KiB），拒绝跨站。
 - 资产定义以「不可信背景」注入，`<` 全部转义，超 6 KB 截断并标注。
@@ -60,7 +80,7 @@ curl -s -X POST http://127.0.0.1:43129/guancli-mentions/v1/rpc \
 ```
 
 ```bash
-node --test test/mention.test.mjs test/cli.test.mjs test/client.test.mjs
+node --test test/mention.test.mjs test/analysis.test.mjs test/cli.test.mjs test/client.test.mjs test/host.test.mjs
 ```
 
 ## 边界

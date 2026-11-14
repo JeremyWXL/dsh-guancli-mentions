@@ -174,6 +174,49 @@ export class GuancliRunner {
       throw new Error('guancli 返回的内容不是合法 JSON')
     }
   }
+
+  /**
+   * Dataset metadata as printed by `ds get --brief` (name, rows, typed fields).
+   * @param input - profile and dataset id.
+   * @returns raw stdout text for parseDatasetMeta.
+   */
+  async datasetMeta(input) {
+    return await this.run(
+      ['--profile', input.profile, 'ds', 'get', input.datasetId, '--brief'],
+      { timeoutMs: 30_000, signal: input.signal },
+    )
+  }
+
+  /**
+   * Preview dataset rows as JSON with optional column projection and filters.
+   * @param input - profile, dataset id, limit, columns, filters.
+   * @returns row object array (string values, per CLI contract).
+   */
+  async previewJson(input) {
+    const args = ['--profile', input.profile, 'ds', 'preview', input.datasetId, '--limit', String(input.limit), '-f', 'json']
+    if (Array.isArray(input.columns) && input.columns.length > 0) args.push('--columns', input.columns.join(','))
+    for (const filter of input.filters ?? []) args.push('--filter', filter)
+    return await this.json(args, input.signal)
+  }
+
+  /**
+   * Execute one read-only aggregation query on the BI side.
+   * @param input - profile, dataset id, SQL text, row cap.
+   * @returns parsed JSON rows (typed numbers when --typed is honored).
+   */
+  async executeSql(input) {
+    const args = [
+      '--profile', input.profile,
+      'ds', 'execute-sql',
+      '-inputs', input.datasetId,
+      '-sql', input.sql,
+      '--limit', String(input.limit),
+      '--disable-cache',
+      '-f', 'json',
+      '--typed',
+    ]
+    return await this.json(args, input.signal)
+  }
 }
 
 export { AUTH_HEADER }

@@ -185,8 +185,9 @@ export const ASSET_WARNING =
 
 /** Usage rules the model needs to turn a mention into a query. */
 export const ASSET_USAGE =
-  '使用约定：dataset 用 guancli_dataset_preview(profile, datasetId)；page（看板）先用 guancli_asset_inspect 查看卡片，'
-  + '再用 guancli_card_preview(profile, pageId, cardId) 查询。profile 必须填资产所属环境，行数受硬上限约束，不要绕过。'
+  '使用约定：先用 guancli_asset_overview(profile, assetType, assetId) 了解字段与角色（维度/度量/时间），后续分析只能引用其中出现的字段。'
+  + '数据集统计用 guancli_analyze_dataset（聚合在 BI 侧完成，返回统计结果而非明细，不受行数上限影响）；'
+  + '枚举字段取值用 guancli_field_profile。guancli_dataset_preview 仅用于验证字段含义，不要用它做分析。profile 必须填资产所属环境。'
 
 /**
  * Render the second user message that carries the referenced asset context.
