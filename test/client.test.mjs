@@ -26,10 +26,10 @@ function loadClientModule() {
   })
 }
 
-/** Build one client context that captures dictionaries and the registered source. */
+/** Build one client context that captures dictionaries, the source, and slot nodes. */
 function harness() {
   const body = loadClientModule()
-  const captured = { dictionaries: undefined, source: undefined }
+  const captured = { dictionaries: undefined, source: undefined, rules: [], nodes: [] }
   const ctx = {
     effect(run) {
       return run()
@@ -38,9 +38,29 @@ function harness() {
       callback({
         effect: ctx.effect,
         locale: ctx.locale,
+        get(name) {
+          return captured.services?.[name]
+        },
+        sidebarRight: undefined,
         inputTriggers: {
           registerSource(source) {
             captured.source = source
+            return () => {}
+          },
+        },
+        uiConversation: {
+          userText: {
+            register(rule) {
+              captured.rules.push(rule)
+            },
+          },
+        },
+        slots: {
+          inject(_slotName, callback) {
+            return callback()
+          },
+          register(definition, component) {
+            captured.nodes.push({ definition, component })
             return () => {}
           },
         },
@@ -211,4 +231,60 @@ test('picking a hint row or malformed value inserts nothing', () => {
   assert.equal(captured.source.onPick({ candidate: { value: JSON.stringify({ kind: 'hint' }) } }), undefined)
   assert.equal(captured.source.onPick({ candidate: { value: 'not json' } }), undefined)
   assert.equal(captured.source.onPick({ candidate: { value: JSON.stringify({ type: 'dataset', id: 'd1' }) } }), undefined)
+})
+
+
+// #region clickable asset links
+
+const PAGE_MENTION = '@[经营看板](dsh-guancli:page:demo:pg_1)'
+const DS_MENTION = '@[销售明细](dsh-guancli:dataset:demo:ds_9)'
+
+test('the user-text rule extracts env and id from page and dataset mentions', () => {
+  const { captured } = harness()
+  const rule = captured.rules.find((candidate) => candidate.id === 'guancli-asset')
+  assert.ok(rule, 'asset mention rule must be registered')
+  const page = rule.match(`看看 ${PAGE_MENTION} 的数据`, 0)
+  assert.deepEqual(page.data, { label: '经营看板', type: 'page', env: 'demo', id: 'pg_1' })
+  assert.equal(page.start, 3)
+  const ds = rule.match(DS_MENTION, 0)
+  assert.equal(ds.data.type, 'dataset')
+  assert.equal(ds.data.id, 'ds_9')
+  assert.equal(rule.match('普通文本 @文件 没有 mention', 0), undefined)
+  assert.equal(rule.match('@[坏](dsh-guancli:card:demo:c1)', 0), undefined)
+})
+
+test('clicking the asset chip resolves the URL and opens the sidebar browser', async () => {
+  const { captured } = harness()
+  const node = captured.nodes.find((entry) => entry.definition.key === 'guancli-asset')
+  assert.ok(node, 'asset link node must be registered')
+  const opened = []
+  const openAsset = async (data) => {
+    const result = await withFetch(async () => ({
+      json: async () => ({ ok: true, data: { url: `https://demo.guandata.com/page/${data.id}` } }),
+    }), async () => {
+      // Mirror the client openAsset flow against a stubbed sidebarRight.
+      const response = await fetch('/guancli-mentions/v1/rpc', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action: 'pageUrl', input: data }),
+      })
+      return (await response.json()).data
+    })
+    opened.push({ kind: 'browser', params: { url: result.url } })
+  }
+  const zhDict = { 'asset.open': '在侧边栏打开 {name}' }
+  const t = (key, values = {}) => String(zhDict[key] ?? key).replace(/\{(\w+)\}/gu, (_w, name) => values[name] ?? _w)
+  const element = node.component({ node: { data: { label: '经营看板', type: 'page', env: 'demo', id: 'pg_1' } }, openAsset, t })
+  assert.equal(element.type, 'button')
+  assert.equal(element.props.title, '在侧边栏打开 经营看板')
+  await element.props.onClick()
+  assert.deepEqual(opened, [{ kind: 'browser', params: { url: 'https://demo.guandata.com/page/pg_1' } }])
+})
+
+test('every locale dictionary carries the new asset.open keys', () => {
+  const { captured } = harness()
+  for (const dict of Object.values(captured.dictionaries)) {
+    assert.equal(typeof dict['asset.open'], 'string')
+    assert.equal(typeof dict['asset.openFailed'], 'string')
+  }
 })

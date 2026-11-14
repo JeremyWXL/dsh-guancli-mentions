@@ -31,6 +31,8 @@ window.__ModuleLoader__.load({
       'hint.unknownEnvironment': '环境 {env} 未在 guancli 鉴权',
       'hint.restart': '观远插件需要重启 DSH Desktop 后生效',
       'hint.restart.description': '新版 Host 模块要重启才能加载，重启后刷新页面再试',
+      'asset.open': '在侧边栏打开 {name}',
+      'asset.openFailed': '打开失败：{reason}',
     }
     const en = {
       'section.datasets': 'Guandata datasets',
@@ -51,6 +53,8 @@ window.__ModuleLoader__.load({
       'hint.unknownEnvironment': 'Environment {env} is not authenticated in guancli',
       'hint.restart': 'The Guandata plugin needs a DSH Desktop restart',
       'hint.restart.description': 'The new Host module loads only after restart; restart, reload the page, then retry',
+      'asset.open': 'Open {name} in the sidebar',
+      'asset.openFailed': 'Failed to open: {reason}',
     }
     const ja = {
       'section.datasets': 'Guandata データセット',
@@ -71,6 +75,8 @@ window.__ModuleLoader__.load({
       'hint.unknownEnvironment': '環境 {env} は guancli で認証されていません',
       'hint.restart': 'Guandata プラグインは DSH Desktop の再起動後に有効になります',
       'hint.restart.description': '新しい Host モジュールは再起動時に読み込まれます。再起動して再読み込みしてください',
+      'asset.open': '{name} をサイドバーで開く',
+      'asset.openFailed': '開けませんでした：{reason}',
     }
     const es = {
       'section.datasets': 'Conjuntos de datos de Guandata',
@@ -91,6 +97,8 @@ window.__ModuleLoader__.load({
       'hint.unknownEnvironment': 'El entorno {env} no está autenticado en guancli',
       'hint.restart': 'El plugin de Guandata requiere reiniciar DSH Desktop',
       'hint.restart.description': 'El nuevo módulo Host solo se carga al reiniciar; reinicie, recargue y reintente',
+      'asset.open': 'Abrir {name} en la barra lateral',
+      'asset.openFailed': 'Error al abrir: {reason}',
     }
     const fr = {
       'section.datasets': 'Jeux de données Guandata',
@@ -111,6 +119,8 @@ window.__ModuleLoader__.load({
       'hint.unknownEnvironment': "L'environnement {env} n'est pas authentifié dans guancli",
       'hint.restart': 'Le plugin Guandata nécessite un redémarrage de DSH Desktop',
       'hint.restart.description': 'Le nouveau module Host ne se charge qu’au redémarrage ; redémarrez, rechargez puis réessayez',
+      'asset.open': 'Ouvrir {name} dans la barre latérale',
+      'asset.openFailed': 'Échec de l’ouverture : {reason}',
     }
     const de = {
       'section.datasets': 'Guandata-Datensätze',
@@ -131,6 +141,8 @@ window.__ModuleLoader__.load({
       'hint.unknownEnvironment': 'Umgebung {env} ist in guancli nicht authentifiziert',
       'hint.restart': 'Das Guandata-Plugin benötigt einen DSH-Desktop-Neustart',
       'hint.restart.description': 'Das neue Host-Modul lädt erst nach dem Neustart; neu starten, Seite neu laden, erneut versuchen',
+      'asset.open': '{name} in der Seitenleiste öffnen',
+      'asset.openFailed': 'Öffnen fehlgeschlagen: {reason}',
     }
     const ru = {
       'section.datasets': 'Наборы данных Guandata',
@@ -151,6 +163,8 @@ window.__ModuleLoader__.load({
       'hint.unknownEnvironment': 'Среда {env} не авторизована в guancli',
       'hint.restart': 'Плагину Guandata нужен перезапуск DSH Desktop',
       'hint.restart.description': 'Новый модуль Host загружается только после перезапуска; перезапустите и повторите',
+      'asset.open': 'Открыть «{name}» в боковой панели',
+      'asset.openFailed': 'Не удалось открыть: {reason}',
     }
     const pt = {
       'section.datasets': 'Conjuntos de dados Guandata',
@@ -171,6 +185,8 @@ window.__ModuleLoader__.load({
       'hint.unknownEnvironment': 'O ambiente {env} não está autenticado no guancli',
       'hint.restart': 'O plugin Guandata requer reiniciar o DSH Desktop',
       'hint.restart.description': 'O novo módulo Host só carrega após reiniciar; reinicie, recarregue e tente de novo',
+      'asset.open': 'Abrir {name} na barra lateral',
+      'asset.openFailed': 'Falha ao abrir: {reason}',
     }
 
     /**
@@ -434,6 +450,69 @@ window.__ModuleLoader__.load({
       }
     }
 
+    /**
+     * user-text rule: turn a sent asset mention into a clickable node.
+     * The wire form carries env and id; the durable message keeps it verbatim.
+     */
+    const assetMentionRule = {
+      id: 'guancli-asset',
+      order: 10,
+      match(text, from) {
+        const wire = /@\[([^\]\n]{1,200})\]\(dsh-guancli:(page|dataset):([^:\s)]+):([^)\s]+)\)/gu
+        let start = text.indexOf('@', from)
+        while (start >= 0) {
+          wire.lastIndex = start
+          const found = wire.exec(text)
+          if (found !== null && found.index === start) {
+            return {
+              id: 'guancli-asset',
+              start,
+              end: start + found[0].length,
+              data: {
+                label: sanitizeLabel(found[1]) || found[4],
+                type: found[2],
+                env: found[3],
+                id: found[4],
+              },
+            }
+          }
+          start = text.indexOf('@', start + 1)
+        }
+        return undefined
+      },
+    }
+
+    /**
+     * Clickable asset chip rendered inside sent user messages.
+     * Opens the BI page in the sidebar browser.
+     */
+    function AssetLink({ node, openAsset, t }) {
+      const data = node.data || {}
+      const label = data.label || data.id || '观远资产'
+      const translate = typeof t === 'function' ? t : (key) => key
+      return h('button', {
+        type: 'button',
+        className: 'guancli-asset-link',
+        title: translate('asset.open', { name: label }),
+        style: {
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '4px',
+          border: 'none',
+          padding: '0 2px',
+          background: 'transparent',
+          color: 'var(--dsw-alias-state-business-primary, #0F6FE0)',
+          font: 'inherit',
+          cursor: 'pointer',
+          borderBottom: '1px dashed currentColor',
+        },
+        onClick: () => (typeof openAsset === 'function' ? openAsset(data) : undefined),
+      },
+        h('span', { 'aria-hidden': true }, data.type === 'page' ? '📊' : '🗂️'),
+        h('span', null, label),
+      )
+    }
+
     return {
       inject: ['locale'],
       apply(ctx) {
@@ -445,6 +524,44 @@ window.__ModuleLoader__.load({
           scope.effect(
             () => scope.inputTriggers.registerSource(createSource(scope)),
             'guancli-mentions: @ source',
+          )
+        })
+
+        /** Resolve the BI URL and reveal it in the sidebar browser. */
+        async function openAsset(data) {
+          try {
+            const result = await rpc('pageUrl', {
+              profile: String(data.env || ''),
+              assetType: data.type === 'dataset' ? 'dataset' : 'page',
+              assetId: String(data.id || ''),
+            })
+            const url = result.data && result.data.url
+            if (typeof url !== 'string' || url === '') {
+              console.warn('[guancli-mentions] pageUrl returned no url')
+              return
+            }
+            const sidebarRight = ctx.get('sidebarRight')
+            if (sidebarRight === undefined || typeof sidebarRight.openTab !== 'function') {
+              console.warn('[guancli-mentions] sidebarRight unavailable')
+              return
+            }
+            sidebarRight.openTab('browser', { params: { url } })
+          } catch (error) {
+            console.warn('[guancli-mentions] open asset failed:', error)
+          }
+        }
+
+        ctx.inject(['uiConversation', 'slots', 'locale'], (scope) => {
+          const t = scope.locale.bind(NS)
+          scope.uiConversation.userText.register(assetMentionRule)
+          scope.effect(
+            () => scope.slots.inject('conversation.user.text.node', () => scope.slots.register({
+              name: 'conversation.user.text.node',
+              key: 'guancli-asset',
+              locale: NS,
+              inject: () => ({ openAsset, t }),
+            }, AssetLink)),
+            'guancli-mentions: asset link node',
           )
         })
       },

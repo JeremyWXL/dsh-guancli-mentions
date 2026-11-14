@@ -275,7 +275,31 @@ async function dispatch(runtime, action, input) {
     }
   }
   if (action === 'candidates') return await candidates(runtime, input)
+  if (action === 'pageUrl') return { url: await resourceUrl(runtime, input) }
   throw new MentionError('UNKNOWN_ACTION', `不支持的动作：${String(action)}`, 404)
+}
+
+/**
+ * Resolve a BI web URL for a mentioned asset (page or dataset detail).
+ * @param runtime - plugin runtime.
+ * @param input - `{ profile, assetType, assetId }`.
+ * @returns `{ url }`.
+ */
+async function resourceUrl(runtime, input) {
+  const profile = String(input?.profile ?? '').trim()
+  const assetId = String(input?.assetId ?? '').trim()
+  const assetType = input?.assetType === 'dataset' ? 'dataset' : 'page'
+  if (profile === '' || assetId === '') {
+    throw new MentionError('URL_INPUT_REQUIRED', 'pageUrl 需要 profile 与 assetId', 400)
+  }
+  try {
+    await assertProfile(runtime, profile)
+    const url = await runtime.cli().resourceUrl({ profile, assetType, assetId })
+    return url
+  } catch (error) {
+    if (error instanceof MentionError) throw error
+    throw new MentionError('URL_RESOLVE_FAILED', `看板链接解析失败：${messageOf(error)}`)
+  }
 }
 
 /**

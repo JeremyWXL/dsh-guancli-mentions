@@ -262,7 +262,7 @@ const AGG_ROWS = [
 
 /** Replace the runtime's CLI runner with a controllable fake. */
 function stubRunner(booted, overrides = {}) {
-  const calls = { executeSql: [], previewJson: [], datasetMeta: [] }
+  const calls = { executeSql: [], previewJson: [], datasetMeta: [], resourceUrl: [] }
   const runner = {
     async environments() {
       return { environments: [{ name: 'demo', url: 'https://x', isDefault: true }], defaultProfile: 'demo' }
@@ -282,6 +282,11 @@ function stubRunner(booted, overrides = {}) {
     },
     async previewCard() {
       return []
+    },
+    async resourceUrl(input) {
+      calls.resourceUrl.push(input)
+      if (overrides.urlError !== undefined) throw new Error(overrides.urlError)
+      return `https://${input.profile}.guandata.com/${input.assetType === 'page' ? 'page' : 'dataset'}/${input.assetId}`
     },
   }
   booted.ctx.__mentionsRuntime.runner = runner
@@ -444,4 +449,34 @@ test('preview tools stay registered but demoted to sample-verification copy', as
   assert.match(preview.description, /不要用本工具做统计分析/u)
   const card = booted.tool('guancli_card_preview')
   assert.match(card.description, /统计分析优先/u)
+})
+
+
+test('pageUrl resolves a BI web URL for pages and datasets', async () => {
+  const booted = await boot()
+  const calls = stubRunner(booted)
+  const page = await booted.call({
+    action: 'pageUrl',
+    input: { profile: 'demo', assetType: 'page', assetId: 'pg_1' },
+  })
+  assert.equal(page.body.data.url, 'https://demo.guandata.com/page/pg_1')
+  const ds = await booted.call({
+    action: 'pageUrl',
+    input: { profile: 'demo', assetType: 'dataset', assetId: 'ds_9' },
+  })
+  assert.equal(ds.body.data.url, 'https://demo.guandata.com/dataset/ds_9')
+  assert.equal(calls.resourceUrl.length, 2)
+})
+
+test('pageUrl rejects missing input and reports resolution failures', async () => {
+  const booted = await boot()
+  const missing = await booted.call({ action: 'pageUrl', input: { profile: 'demo' } })
+  assert.equal(missing.status, 400)
+  stubRunner(booted, { urlError: 'guancli url 输出中没有 Web URL 行' })
+  const failed = await booted.call({
+    action: 'pageUrl',
+    input: { profile: 'demo', assetType: 'page', assetId: 'pg_1' },
+  })
+  assert.equal(failed.status, 500)
+  assert.equal(failed.body.error.code, 'URL_RESOLVE_FAILED')
 })

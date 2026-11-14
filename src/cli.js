@@ -200,6 +200,22 @@ export class GuancliRunner {
   }
 
   /**
+   * Resolve the BI web URL for a resource via `guancli url`.
+   * @param input - profile, mention asset type, asset id.
+   * @returns the web URL text.
+   */
+  async resourceUrl(input) {
+    const type = input.assetType === 'page' ? 'page' : 'ds'
+    const text = await this.run(
+      ['--profile', input.profile, 'url', type, input.assetId],
+      { timeoutMs: 30_000, signal: input.signal },
+    )
+    const match = /^Web URL:\s*(\S+)\s*$/mu.exec(text)
+    if (match === null) throw new Error('guancli url 输出中没有 Web URL 行')
+    return match[1]
+  }
+
+  /**
    * Execute one read-only aggregation query on the BI side.
    * @param input - profile, dataset id, SQL text, row cap.
    * @returns parsed JSON rows (typed numbers when --typed is honored).

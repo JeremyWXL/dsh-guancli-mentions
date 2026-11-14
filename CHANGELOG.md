@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.0
+
+- 引用直连侧边栏：已发送消息中的看板/数据集 `@` 引用渲染为可点击链接（📊/🗂️ 图标），点击后通过 `guancli url` 解析 BI 前端地址并在右侧栏内置浏览器中打开（`sidebarRight.openTab('browser', { params: { url } })`）。
+- RPC 新增 `pageUrl` action（page/dataset 均可解析）；打开失败仅警告不干扰对话。
+- 客户端注册 `conversation.user.text.node`（key `guancli-asset`）与对应 userText 规则，8 语言文案齐全。
+
 ## 0.3.1
 
 - 修复：客户端版本门写死 `0.2.` 前缀，导致 Host 升级到 0.3.x 后误报"需要重启"。改为 semver 下限比较（≥ 0.2.0），并补充 0.2.0/0.3.0/0.10.1/1.0.0 回归用例。
