@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.6
+
+- 看板首载"文件不存在"自愈：Electron 错误页 -6（ERR_FILE_NOT_FOUND）在 BI 页面新 tab 首载时复现、重载必恢复。现在 did-fail-load 命中该模式时自动 reload 一次（每 webview 限一次、0.8s 沉降延迟、非 BI 页面不介入）。
+- 探针注入时机改为 dom-ready 优先：导航关键期的 executeJavaScript 是首载失败的最大嫌疑，注入现在主要挂在 dom-ready，导航事件保留作为兜底。
+
 ## 0.5.5
 
 - 探针版本握手：标记从 boolean 改为 `{version, stop}` 对象——client 刷新后重新注入时，旧探针被显式拆除（移除全部监听/定时器）再装新版，探针更新从此对"已打开的看板页面"也生效（此前必须导航 webview 才能换探针）。`PROBE_VERSION` 随 package.json 版本自动生成。

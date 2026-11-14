@@ -356,3 +356,45 @@ test('the probe watcher injects into BI webviews and forwards console contexts',
   assert.ok(requests.includes('environments'))
   assert.ok(requests.includes('context.publish'))
 })
+
+
+test('a first-load -6 failure on a BI page triggers one automatic reload', async () => {
+  const webviews = []
+  let reloads = 0
+  const handlers = new Map()
+  const webview = {
+    getURL: () => 'https://demo.guandata.com/page/ia69fb0af56f3456e94bc7f0',
+    addEventListener(name, fn) {
+      handlers.set(name, fn)
+    },
+    async executeJavaScript() {
+      return 'installed'
+    },
+    reload() {
+      reloads += 1
+    },
+  }
+  const originalDocument = globalThis.document
+  globalThis.document = { querySelectorAll: () => [webview] }
+  try {
+    await withFetch(async (_url, init) => {
+      const body = JSON.parse(init.body)
+      if (body.action === 'environments') {
+        return { json: async () => ({ ok: true, data: { environments: [{ name: 'demo', url: 'https://demo.guandata.com' }] } }) }
+      }
+      return { json: async () => ({ ok: true, data: { accepted: true } }) }
+    }, async () => {
+      const { captured } = harness()
+      await new Promise((resolve) => setImmediate(resolve))
+      await new Promise((resolve) => setImmediate(resolve))
+      handlers.get('did-fail-load')({ isMainFrame: true, errorCode: -6 })
+      await new Promise((resolve) => setTimeout(resolve, 1200))
+      handlers.get('did-fail-load')({ isMainFrame: true, errorCode: -6 })
+      await new Promise((resolve) => setTimeout(resolve, 1200))
+      for (const cleanup of captured.cleanups) cleanup()
+    })
+  } finally {
+    globalThis.document = originalDocument
+  }
+  assert.equal(reloads, 1, 'exactly one automatic reload per webview')
+})
