@@ -120,7 +120,10 @@ export function buildProbeScript() {
     const seen = new Set()
     const push = (fingerprint, values, extra) => {
       const cleaned = values.map(cleanText).filter((value) => value !== '')
+      // Unlabeled widgets are canvas layout controls (e.g. '自动铺满(70%)'),
+      // not filters — drop them; labeled ones are real selectors.
       if (cleaned.length === 0 || seen.has(fingerprint)) return
+      if (extra?.name === undefined || extra.name === '') return
       seen.add(fingerprint)
       out.push({
         selectorId: 'wide-' + String(out.length + 1),
