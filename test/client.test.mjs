@@ -327,7 +327,7 @@ test('the probe watcher injects into BI webviews and forwards console contexts',
       if (body.action === 'environments') {
         return { json: async () => ({ ok: true, data: { environments: [{ name: 'demo', url: 'https://demo.guandata.com' }] } }) }
       }
-      published.push(body.input.context)
+      if (body.action === 'context.publish') published.push(body.input.context)
       return { json: async () => ({ ok: true, data: { accepted: true } }) }
     }, async () => {
       const { captured } = harness()
@@ -397,4 +397,46 @@ test('a first-load -6 failure on a BI page triggers one automatic reload', async
     globalThis.document = originalDocument
   }
   assert.equal(reloads, 1, 'exactly one automatic reload per webview')
+})
+
+
+test('the watcher self-reports its state through the recon channel', async () => {
+  const webviews = []
+  const handlers = new Map()
+  const uploaded = []
+  const webview = {
+    getURL: () => 'https://demo.guandata.com/page/ia69fb0af56f3456e94bc7f0',
+    addEventListener(name, fn) {
+      handlers.set(name, fn)
+    },
+    async executeJavaScript() {
+      webviews.push(true)
+      return 'installed'
+    },
+  }
+  const originalDocument = globalThis.document
+  globalThis.document = { querySelectorAll: () => [webview] }
+  try {
+    await withFetch(async (_url, init) => {
+      const body = JSON.parse(init.body)
+      if (body.action === 'environments') {
+        return { json: async () => ({ ok: true, data: { environments: [{ name: 'demo', url: 'https://demo.guandata.com' }] } }) }
+      }
+      uploaded.push(body.input.report)
+      return { json: async () => ({ ok: true, data: { accepted: true } }) }
+    }, async () => {
+      const { captured } = harness()
+      await new Promise((resolve) => setImmediate(resolve))
+      await new Promise((resolve) => setImmediate(resolve))
+      for (const cleanup of captured.cleanups) cleanup()
+    })
+  } finally {
+    globalThis.document = originalDocument
+  }
+  const state = uploaded.find((report) => report?.kind === 'probe-state')
+  assert.ok(state, 'probe-state report must be uploaded')
+  assert.equal(state.environments, 1)
+  assert.equal(state.webviews, 1)
+  assert.equal(state.biWebviews, 1)
+  assert.ok(state.probeScriptChars > 1000)
 })

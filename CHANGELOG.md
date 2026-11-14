@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.8
+
+- 探针注入器状态自报：每次扫描经侦察通道（`context.domProbe`）上传 `{kind:'probe-state', probeScriptChars, environments, webviews, biWebviews, attached, injectErrors}`，`debug.dom` 可读——排查"探针为何没注入"不再需要肉眼盲猜。
+
 ## 0.5.7
 
 - 修复引用渲染失效：pre-step 此前把消息中的 wire mention（`@[名称](dsh-guancli:…)`）改写成裸 `@名称`，渲染层匹配不到 URI，引用被文件引用规则误识别。现在 pre-step **保留原文**，可读性由追加的 referenced-assets 上下文承担——已发送消息中的看板/数据集链接恢复可点击。
