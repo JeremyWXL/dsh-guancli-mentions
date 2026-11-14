@@ -538,13 +538,11 @@ async function enrichMessages(runtime, payload, messages) {
       continue
     }
     const refs = []
-    const content = message.content.map((block) => {
-      if (block?.type !== 'text' || typeof block.text !== 'string') return block
-      if (!block.text.includes('dsh-guancli:')) return block
-      const parsed = parseMentions(block.text)
-      refs.push(...parsed.refs)
-      return { ...block, text: parsed.text }
-    })
+    for (const block of message.content) {
+      if (block?.type !== 'text' || typeof block.text !== 'string') continue
+      if (!block.text.includes('dsh-guancli:')) continue
+      refs.push(...parseMentions(block.text).refs)
+    }
     if (refs.length === 0) {
       out.push(message)
       continue
@@ -556,7 +554,11 @@ async function enrichMessages(runtime, payload, messages) {
       runtime.sessionEnvironment.set(sessionId, ref.env)
       entries.push(await describe(gateway, ref, payload.signal))
     }
-    out.push({ ...message, content })
+    // Keep the original message untouched: the wire mention is what the
+    // composer serialized and what the UI renderer matches to show the
+    // clickable asset link. Readability for the model comes from the
+    // appended context, not from rewriting the user's text.
+    out.push(message)
     out.push(await createUserMessage({
       source: { kind: CONTEXT_SOURCE_KIND, form: 'recall', version: 2, references: selected },
       content: [{ type: 'text', text: buildContextText(entries) }],

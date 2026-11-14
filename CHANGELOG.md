@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.7
+
+- 修复引用渲染失效：pre-step 此前把消息中的 wire mention（`@[名称](dsh-guancli:…)`）改写成裸 `@名称`，渲染层匹配不到 URI，引用被文件引用规则误识别。现在 pre-step **保留原文**，可读性由追加的 referenced-assets 上下文承担——已发送消息中的看板/数据集链接恢复可点击。
+
 ## 0.5.6
 
 - 看板首载"文件不存在"自愈：Electron 错误页 -6（ERR_FILE_NOT_FOUND）在 BI 页面新 tab 首载时复现、重载必恢复。现在 did-fail-load 命中该模式时自动 reload 一次（每 webview 限一次、0.8s 沉降延迟、非 BI 页面不介入）。

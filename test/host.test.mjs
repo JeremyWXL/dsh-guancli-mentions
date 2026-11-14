@@ -523,6 +523,27 @@ test('guancli_dashboard_context reports the live snapshot and its freshness', as
   assert.equal(missing.connected, false)
 })
 
+test('pre-step keeps the original mention text and appends the asset context', async () => {
+  const booted = await boot()
+  const listener = booted.preStep()
+  const mention = '@[全景库存管理](dsh-guancli:page:demo:g8a4f06e5ad614b7e996ffb2)'
+  const userMessage = {
+    id: 'm1',
+    role: 'user',
+    source: { kind: 'user' },
+    content: [{ type: 'text', text: `${mention} 帮我看看` }],
+  }
+  const decision = await listener(
+    { agent: { id: 'session-1' }, signal: undefined },
+    async () => ({ kind: 'accept', messages: [userMessage] }),
+  )
+  assert.equal(decision.messages.length, 2)
+  assert.equal(decision.messages[0].content[0].text, `${mention} 帮我看看`, 'wire mention must survive verbatim')
+  const contextMessage = decision.messages[1]
+  assert.equal(contextMessage.source.form, 'recall')
+  assert.match(contextMessage.content[0].text, /引用的观远资产/u)
+})
+
 test('pre-step injects the dashboard snapshot when the user cites the live board', async () => {
   const booted = await boot()
   await booted.call({ action: 'context.publish', input: { context: PROBE_CONTEXT } })
