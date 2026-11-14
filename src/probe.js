@@ -159,16 +159,18 @@ export function buildProbeScript() {
   /**
    * Pick the selector list: the runtime broadcast wins only when it
    * actually carries entries, then the identified-widget DOM pass, then
-   * the wide pass. Entries are origin-tagged.
+   * the wide pass. Entries are origin-tagged. 'precise' is false when the
+   * wide pass carried the result — that is exactly when a DOM recon
+   * report is most needed.
    */
-  function mergedSelectors() {
+  function resolveSelectors() {
     const runtime = runtimeContext && typeof runtimeContext === 'object' ? runtimeContext : {}
     if (Array.isArray(runtime.selectors) && runtime.selectors.length > 0) {
-      return runtime.selectors.slice(0, MAX_SELECTORS).map((selector) => ({ origin: 'runtime', ...selector }))
+      return { list: runtime.selectors.slice(0, MAX_SELECTORS).map((selector) => ({ origin: 'runtime', ...selector })), precise: true }
     }
     const dom = domSelectors()
-    if (dom.length > 0) return dom
-    return wideSelectors()
+    if (dom.length > 0) return { list: dom, precise: true }
+    return { list: wideSelectors(), precise: false }
   }
 
   function safeUrl() {
@@ -184,11 +186,13 @@ export function buildProbeScript() {
   function snapshot() {
     const runtime = runtimeContext && typeof runtimeContext === 'object' ? runtimeContext : {}
     const currentPageId = String(runtime.pageId || pageId())
+    const resolved = resolveSelectors()
     return {
       pageId: currentPageId,
       pageName: cleanText(runtime.pageName || document.querySelector('[data-page-name],h1')?.textContent || document.title),
       url: safeUrl(),
-      selectors: mergedSelectors(),
+      selectors: resolved.list,
+      selectorPrecise: resolved.precise,
       focusedCardId: String(runtime.focusedCardId || focusedCardId || ''),
       capturedAt: Date.now(),
     }
@@ -248,7 +252,7 @@ export function buildProbeScript() {
       lastPublished = serialized
       console.log('${PROBE_LOG_PREFIX}' + serialized)
     }
-    if (value.selectors.length === 0 && Date.now() - lastDomProbeAt > 30_000) {
+    if (value.selectorPrecise !== true && Date.now() - lastDomProbeAt > 30_000) {
       lastDomProbeAt = Date.now()
       console.log('${DOM_PROBE_PREFIX}' + JSON.stringify(domProbe()).slice(0, 16 * 1024))
     }

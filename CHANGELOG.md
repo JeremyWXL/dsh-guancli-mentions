@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.3
+
+- 修复侦察通道与宽口径采集的逻辑矛盾：DOM 侦察原本只在 selectors 为空时触发，而 0.5.2 的宽口径采集使 selectors 几乎不再为空，侦察永久失效。现在精确采集（runtime 广播或 data-selector-id）失败、仅宽口径兜底时即触发侦察上报，上下文同时带 `selectorPrecise` 标记。
+
 ## 0.5.2
 
 - **探针脚本内联到 client bundle**（`scripts/sync-probe.mjs` 从 src/probe.js 生成）：探针迭代从此只需安装 + 刷新页面，不再要求重启 Host；`probe.script` RPC 移除。同步由测试强制（client 内联值必须与 buildProbeScript() 逐字符一致）。

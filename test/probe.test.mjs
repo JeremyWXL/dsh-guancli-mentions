@@ -25,7 +25,7 @@ test('buildProbeScript returns a guarded IIFE string', () => {
   assert.match(script, /data-selector-id/u)
   assert.ok(script.includes(`console.log('${PROBE_LOG_PREFIX}' + serialized)`))
   assert.ok(script.includes(`console.log('${DOM_PROBE_PREFIX}' + JSON.stringify(domProbe())`))
-  assert.match(script, /function mergedSelectors\(\)/u)
+  assert.match(script, /function resolveSelectors\(\)/u)
   assert.match(script, /runtime\.selectors\.length > 0/u, 'empty runtime selectors must fall through to DOM')
   assert.match(script, /origin: 'dom'/u)
   // The script must be syntactically valid on its own.
