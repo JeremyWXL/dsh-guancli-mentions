@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.9
+
+- 探针宽口径采集按真实 DOM 侦察结果精确化：
+  - 新增 **segmented 段控件**采集（`.ant-segmented-item-selected`）——demo BI 的 LR=可用库存 这类筛选器是 segmented 而非下拉，选中项无语义歧义，允许无名上报（`widget: 'segmented'`）；
+  - **布局黑名单**：`scale-selector` 容器（"自动铺满(70%)"画布缩放）显式排除；
+  - 下拉 pill 聚合优先从 `SEL_` 筛选器容器取标签。
+
 ## 0.5.8
 
 - 探针注入器状态自报：每次扫描经侦察通道（`context.domProbe`）上传 `{kind:'probe-state', probeScriptChars, environments, webviews, biWebviews, attached, injectErrors}`，`debug.dom` 可读——排查"探针为何没注入"不再需要肉眼盲猜。

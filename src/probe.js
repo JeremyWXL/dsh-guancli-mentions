@@ -123,9 +123,10 @@ export function buildProbeScript() {
     const push = (fingerprint, values, extra) => {
       const cleaned = values.map(cleanText).filter((value) => value !== '')
       // Unlabeled widgets are canvas layout controls (e.g. '自动铺满(70%)'),
-      // not filters — drop them; labeled ones are real selectors.
+      // not filters — drop them; labeled ones are real selectors. Segmented
+      // widgets pass unnamed: their selected state is unambiguous.
       if (cleaned.length === 0 || seen.has(fingerprint)) return
-      if (extra?.name === undefined || extra.name === '') return
+      if ((extra?.name === undefined || extra.name === '') && extra?.widget !== 'segmented') return
       seen.add(fingerprint)
       out.push({
         selectorId: 'wide-' + String(out.length + 1),
@@ -137,15 +138,35 @@ export function buildProbeScript() {
       })
     }
     for (const box of document.querySelectorAll('[role="combobox"],.ant-select,[class*="Select"],[class*="selector"]')) {
+      // Canvas layout chrome (the '自动铺满(70%)' zoom control), not a filter.
+      if (String(box.className || '').includes('scale-selector') || box.closest('.scale-selector') !== null) continue
       const pills = [...box.querySelectorAll('.ant-select-selection-item,[aria-selected="true"]')]
         .map((el) => cleanText(el.getAttribute('title') || el.textContent))
         .filter((value) => value !== '' && !/^(全部|全选|请选择|搜索)$/iu.test(value))
       if (pills.length === 0) continue
+      // Page filters in this BI build carry SEL_ class tokens; prefer a
+      // label from the nearest filter container over generic text.
+      const holder = box.closest('[class*="SEL_"],[class*="filter"],[class*="Filter"],[class*="selector"],[data-selector-id]')
       const label = cleanText(
-        box.closest('[class*="filter"],[class*="Filter"],[class*="selector"],[data-selector-id]')?.querySelector('[class*="title"],[class*="label"],label')?.textContent
+        holder?.querySelector('[class*="title"],[class*="label"],label')?.textContent
         || box.getAttribute('aria-label') || '',
       ).slice(0, 40)
       push('box:' + String(box.className || '').slice(0, 60) + ':' + label, pills, { name: label || undefined })
+    }
+    // Segmented single-select widgets (e.g. LR=可用库存): the selected item
+    // is unambiguous even without a label, so accept unnamed ones — BI uses
+    // segmented almost exclusively for filters/switches, not layout.
+    for (const seg of document.querySelectorAll('.ant-segmented')) {
+      if (String(seg.className || '').includes('scale-selector') || seg.closest('.scale-selector') !== null) continue
+      const selected = seg.querySelector('.ant-segmented-item-selected')
+      const value = cleanText(selected?.textContent || '')
+      if (value === '' || /^(全部|全选|请选择|搜索)$/iu.test(value)) continue
+      const holder = seg.closest('[class*="SEL_"],[class*="filter"],[class*="Filter"]')
+      const label = cleanText(
+        holder?.querySelector('[class*="title"],[class*="label"],label')?.textContent
+        || seg.getAttribute('aria-label') || '',
+      ).slice(0, 40)
+      push('seg:' + String(seg.className || '').slice(0, 60) + ':' + label, [value], { name: label || undefined, widget: 'segmented' })
     }
     for (const input of document.querySelectorAll('input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"])')) {
       const value = cleanText(input.value)

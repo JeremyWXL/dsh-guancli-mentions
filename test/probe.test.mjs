@@ -30,6 +30,8 @@ test('buildProbeScript returns a guarded IIFE string', () => {
   assert.match(script, /function resolveSelectors\(\)/u)
   assert.match(script, /runtime\.selectors\.length > 0/u, 'empty runtime selectors must fall through to DOM')
   assert.match(script, /origin: 'dom'/u)
+  assert.match(script, /ant-segmented-item-selected/u, 'segmented widgets must be captured')
+  assert.match(script, /scale-selector/u, 'layout zoom controls must be excluded')
   // The script must be syntactically valid on its own.
   new Function(script)
 })
