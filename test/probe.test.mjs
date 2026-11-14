@@ -3,6 +3,7 @@ import test from 'node:test'
 
 import {
   DOM_PROBE_PREFIX,
+  HEARTBEAT_PREFIX,
   PROBE_LOG_PREFIX,
   buildProbeScript,
   looksLikePageUrl,
@@ -32,6 +33,8 @@ test('buildProbeScript returns a guarded IIFE string', () => {
   assert.match(script, /origin: 'dom'/u)
   assert.match(script, /ant-segmented-item-selected/u, 'segmented widgets must be captured')
   assert.match(script, /scale-selector/u, 'layout zoom controls must be excluded')
+  assert.match(script, /function heartbeat\(\)/u, 'unconditional heartbeat must exist')
+  assert.ok(script.includes(`console.log('${HEARTBEAT_PREFIX}' + JSON.stringify`), 'heartbeat logs with its prefix')
   // The script must be syntactically valid on its own.
   new Function(script)
 })

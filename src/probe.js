@@ -22,6 +22,9 @@ export const PROBE_LOG_PREFIX = '__GUANCLI_DASHBOARD_CONTEXT__'
 /** Console line prefix for DOM recon reports (selector list stayed empty). */
 export const DOM_PROBE_PREFIX = '__GUANCLI_DOM_PROBE__'
 
+/** Console line prefix for the probe heartbeat. */
+export const HEARTBEAT_PREFIX = '__GUANCLI_HEARTBEAT__'
+
 /** How long a captured context stays "fresh" for tools and pre-step. */
 export const CONTEXT_FRESH_MS = 5 * 60_000
 
@@ -45,6 +48,7 @@ export function buildProbeScript() {
   const MAX_SELECTORS = ${String(MAX_SELECTORS)}
   const MAX_VALUES = ${String(MAX_VALUES)}
   const DOM_PROBE_PREFIX = '${DOM_PROBE_PREFIX}'
+  const HEARTBEAT_PREFIX = '${HEARTBEAT_PREFIX}'
   let focusedCardId = ''
   let runtimeContext = null
   let timer = null
@@ -230,6 +234,8 @@ export function buildProbeScript() {
 
   /** Last DOM recon emission, throttled to one per 30 seconds. */
   let lastDomProbeAt = 0
+  /** Last heartbeat emission, throttled to one per 20 seconds. */
+  let lastHeartbeatAt = 0
 
   /**
    * Recon pass over unknown BI DOM: input/select inventory, data-* attribute
@@ -274,6 +280,18 @@ export function buildProbeScript() {
     }
   }
 
+  function heartbeat() {
+    if (Date.now() - lastHeartbeatAt < 20_000) return
+    lastHeartbeatAt = Date.now()
+    console.log('${HEARTBEAT_PREFIX}' + JSON.stringify({
+      kind: 'heartbeat',
+      href: (() => { try { return location.href } catch (_e) { return '' } })(),
+      pageId: pageId(),
+      readyState: document.readyState,
+      at: Date.now(),
+    }))
+  }
+
   function publish() {
     const value = snapshot()
     if (!ID_PATTERN.test(value.pageId)) return
@@ -299,6 +317,10 @@ export function buildProbeScript() {
     if (id) focusedCardId = id
     schedule()
   }
+  const onDomReady = () => {
+    heartbeat()
+    schedule()
+  }
   const onMessage = (event) => {
     if (event.source !== window || event.origin !== location.origin || event.data?.type !== 'GUANDATA_DASHBOARD_CONTEXT') return
     runtimeContext = event.data.context || null
@@ -306,6 +328,7 @@ export function buildProbeScript() {
   }
   document.addEventListener('click', onClick, true)
   document.addEventListener('change', schedule, true)
+  document.addEventListener('DOMContentLoaded', onDomReady)
   window.addEventListener('popstate', schedule)
   window.addEventListener('hashchange', schedule)
   window.addEventListener('message', onMessage)
@@ -315,11 +338,13 @@ export function buildProbeScript() {
       clearTimeout(timer)
       document.removeEventListener('click', onClick, true)
       document.removeEventListener('change', schedule, true)
+      document.removeEventListener('DOMContentLoaded', onDomReady)
       window.removeEventListener('popstate', schedule)
       window.removeEventListener('hashchange', schedule)
       window.removeEventListener('message', onMessage)
     },
   }
+  heartbeat()
   schedule()
   return 'installed'
 })()`

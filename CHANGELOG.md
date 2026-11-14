@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.12
+
+- 探针无条件心跳：每 20 秒（及 DOMContentLoaded 时）上报 `{href, pageId, readyState}`——探针再静默也能被定位（经 `probe-state` 槽可读）。
+
 ## 0.5.11
 
 - 探针上报空值页面筛选器：侦察证实 demo BI 的 `SEL_select` 下拉在无选中值时占位符是"请选择"而非 `.ant-select-selection-item`，此前被误跳。现在页面筛选器（`SEL_` class）即使没有选中值也作为 selector 上报，标记 `applied: false`——模型可区分"未筛选"与"未采集"。
