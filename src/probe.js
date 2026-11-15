@@ -25,6 +25,9 @@ export const DOM_PROBE_PREFIX = '__GUANCLI_DOM_PROBE__'
 /** Console line prefix for the probe heartbeat. */
 export const HEARTBEAT_PREFIX = '__GUANCLI_HEARTBEAT__'
 
+/** Console line prefix for network recon (fetch/XHR request capture). */
+export const NET_PROBE_PREFIX = '__GUANCLI_NET_PROBE__'
+
 /** How long a captured context stays "fresh" for tools and pre-step. */
 export const CONTEXT_FRESH_MS = 5 * 60_000
 
@@ -49,6 +52,7 @@ export function buildProbeScript() {
   const MAX_VALUES = ${String(MAX_VALUES)}
   const DOM_PROBE_PREFIX = '${DOM_PROBE_PREFIX}'
   const HEARTBEAT_PREFIX = '${HEARTBEAT_PREFIX}'
+  const NET_PROBE_PREFIX = '${NET_PROBE_PREFIX}'
   let focusedCardId = ''
   let runtimeContext = null
   let timer = null
@@ -292,6 +296,111 @@ export function buildProbeScript() {
     }))
   }
 
+  // #region network recon: capture the BI page's own API calls.
+  // Filter changes on a BI dashboard are re-queried through fetch/XHR; the
+  // request payload carries the exact selector→field→dataset mapping that
+  // neither the (nonexistent) runtime broadcast nor the DOM can provide.
+  // Phase 1 is reconnaissance: report endpoint inventory plus JSON request
+  // bodies so the selector extractor can be written against real payloads.
+
+  /** Per-page capture budgets; recon must never flood the console. */
+  const NET_MAX_COMPACT = 120
+  const NET_MAX_DETAILED = 30
+  /** Static assets and telemetry never carry dashboard state. */
+  const NET_SKIP_PATH = /\\.(?:js|css|png|jpe?g|gif|svg|webp|woff2?|map|ico)(?:[?#]|$)|\\/(?:static|vendor|polyfill)\\/|log|track|sentry|monitor|heartbeat/i
+  /** Paths whose JSON bodies are always captured in detail. */
+  const NET_DETAIL_PATH = /query|condition|selector|filter|page|card|data|ds|batch|search|report|chart/i
+  const netState = { seen: new Set(), compact: 0, detailed: 0 }
+
+  function netUrl(rawUrl) {
+    try {
+      return new URL(rawUrl, location.href)
+    } catch (_error) {
+      return null
+    }
+  }
+
+  /**
+   * Report one request: a compact inventory line per unique signature, plus a
+   * detailed JSON-body dump for query-looking endpoints.
+   */
+  function netCapture(method, rawUrl, body) {
+    const url = netUrl(rawUrl)
+    if (url === null || url.origin !== location.origin) return
+    const path = url.pathname
+    if (NET_SKIP_PATH.test(path)) return
+    const bodyText = typeof body === 'string' ? body : ''
+    const key = method + ' ' + path + ' #' + String(bodyText.length) + ':' + bodyText.slice(0, 64)
+    if (netState.seen.has(key)) return
+    netState.seen.add(key)
+    if (netState.compact < NET_MAX_COMPACT) {
+      netState.compact += 1
+      console.log(NET_PROBE_PREFIX + JSON.stringify({ kind: 'net-req', method, path, bodyBytes: bodyText.length, at: Date.now() }))
+    }
+    if (bodyText === '' || bodyText.charAt(0) !== '{') return
+    if (!NET_DETAIL_PATH.test(path) && netState.detailed >= 5) return
+    if (netState.detailed >= NET_MAX_DETAILED) return
+    netState.detailed += 1
+    console.log(NET_PROBE_PREFIX + JSON.stringify({
+      kind: 'net-req-body',
+      method,
+      path,
+      body: bodyText.slice(0, 11000),
+      truncated: bodyText.length > 11000,
+      at: Date.now(),
+    }).slice(0, 12000))
+  }
+
+  /** Monkey-patch fetch and XHR; originals are restorable via unhookNetwork. */
+  function hookNetwork() {
+    const w = window
+    if (typeof w.fetch === 'function' && w.fetch.__guancliOriginal === undefined) {
+      const original = w.fetch
+      const hooked = function (input, init) {
+        try {
+          const method = String((init && init.method) || (input && input.method) || 'GET').toUpperCase()
+          const url = typeof input === 'string' ? input : String((input && input.url) || '')
+          if (method !== 'GET' && method !== 'HEAD') netCapture(method, url, init && init.body)
+        } catch (_error) {}
+        return original.apply(this, arguments)
+      }
+      hooked.__guancliOriginal = original
+      w.fetch = hooked
+    }
+    const proto = typeof XMLHttpRequest === 'function' ? XMLHttpRequest.prototype : null
+    if (proto !== null && proto.__guancliOriginal === undefined) {
+      const open = proto.open
+      const send = proto.send
+      proto.open = function (method, url) {
+        this.__guancliReq = { method: String(method || 'GET').toUpperCase(), url: String(url || '') }
+        return open.apply(this, arguments)
+      }
+      proto.send = function (body) {
+        try {
+          const req = this.__guancliReq
+          if (req && req.method !== 'GET' && req.method !== 'HEAD') {
+            netCapture(req.method, req.url, typeof body === 'string' ? body : '')
+          }
+        } catch (_error) {}
+        return send.apply(this, arguments)
+      }
+      proto.__guancliOriginal = { open, send }
+    }
+  }
+
+  /** Restore the page's original fetch/XHR (probe upgrade or teardown). */
+  function unhookNetwork() {
+    const w = window
+    if (w.fetch && w.fetch.__guancliOriginal !== undefined) w.fetch = w.fetch.__guancliOriginal
+    const proto = typeof XMLHttpRequest === 'function' ? XMLHttpRequest.prototype : null
+    if (proto !== null && proto.__guancliOriginal !== undefined) {
+      proto.open = proto.__guancliOriginal.open
+      proto.send = proto.__guancliOriginal.send
+      delete proto.__guancliOriginal
+    }
+  }
+  // #endregion
+
   function publish() {
     const value = snapshot()
     if (!ID_PATTERN.test(value.pageId)) return
@@ -342,8 +451,10 @@ export function buildProbeScript() {
       window.removeEventListener('popstate', schedule)
       window.removeEventListener('hashchange', schedule)
       window.removeEventListener('message', onMessage)
+      unhookNetwork()
     },
   }
+  hookNetwork()
   heartbeat()
   schedule()
   return 'installed'

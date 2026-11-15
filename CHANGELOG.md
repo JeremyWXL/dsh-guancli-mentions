@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.13
+
+- **网络侦察探针（可行性验证版）**：在 guest 页面 hook `fetch` / `XMLHttpRequest`，捕获 BI 页面自身 API 调用——紧凑清单行（method+path+body 字节数，按签名去重，≤120 条）+ 疑似查询接口的 JSON 请求体详情（≤30 条，单条 ≤12 KB）。理由：广播通道 `GUANDATA_DASHBOARD_CONTEXT` 在该 BI 版本前端全部 bundle 中 0 命中（不存在）；DOM 通道拿不到筛选器→字段映射。BI 每次筛选变化都经 HTTP 重新查询，请求体天然带完整 selector→field→dataset 映射。
+- 探针升级/卸载时恢复原始 `fetch`/`XHR`（`stop()` 调 `unhookNetwork()`），不在页面残留钩子。
+- client 侧新增 `__GUANCLI_NET_PROBE__` 解析与 3 秒批量上报（`kind:'net-batch'`，缓冲 ≤200 条）；Host `context.domProbe` 新增 `netProbe` 槽位，`debug.dom` 可读。
+- ⚠️ 本次含 Host 变更（netProbe 槽位），**需重启 DSH Desktop 后生效**。
+
 ## 0.5.12
 
 - 探针无条件心跳：每 20 秒（及 DOMContentLoaded 时）上报 `{href, pageId, readyState}`——探针再静默也能被定位（经 `probe-state` 槽可读）。

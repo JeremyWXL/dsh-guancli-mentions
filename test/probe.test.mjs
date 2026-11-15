@@ -4,6 +4,7 @@ import test from 'node:test'
 import {
   DOM_PROBE_PREFIX,
   HEARTBEAT_PREFIX,
+  NET_PROBE_PREFIX,
   PROBE_LOG_PREFIX,
   buildProbeScript,
   looksLikePageUrl,
@@ -35,6 +36,10 @@ test('buildProbeScript returns a guarded IIFE string', () => {
   assert.match(script, /scale-selector/u, 'layout zoom controls must be excluded')
   assert.match(script, /function heartbeat\(\)/u, 'unconditional heartbeat must exist')
   assert.ok(script.includes(`console.log('${HEARTBEAT_PREFIX}' + JSON.stringify`), 'heartbeat logs with its prefix')
+  assert.match(script, /function hookNetwork\(\)/u, 'network recon hook must exist')
+  assert.match(script, /function unhookNetwork\(\)/u, 'network hook must be restorable')
+  assert.ok(script.includes(`console.log(NET_PROBE_PREFIX + JSON.stringify`), 'network recon logs with its prefix')
+  assert.ok(script.includes('unhookNetwork()'), 'stop() must restore fetch/XHR')
   // The script must be syntactically valid on its own.
   new Function(script)
 })

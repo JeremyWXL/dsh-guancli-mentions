@@ -293,6 +293,7 @@ async function dispatch(runtime, action, input) {
     return {
       domProbe: runtime.domProbe?.report ?? null,
       probeState: runtime.probeState?.report ?? null,
+      netProbe: runtime.netProbe?.report ?? null,
     }
   }
   throw new MentionError('UNKNOWN_ACTION', `不支持的动作：${String(action)}`, 404)
@@ -362,7 +363,7 @@ function storeDomProbe(runtime, input) {
   }
   const size = Buffer.byteLength(JSON.stringify(report), 'utf8')
   if (size > 48 * 1024) throw new MentionError('REPORT_TOO_LARGE', 'DOM 侦察报告超过 48 KiB', 413)
-  const slot = report.kind === 'probe-state' ? 'probeState' : 'domProbe'
+  const slot = report.kind === 'probe-state' ? 'probeState' : report.kind === 'net-batch' ? 'netProbe' : 'domProbe'
   runtime[slot] = { report, at: Date.now() }
   return { accepted: true, bytes: size, slot }
 }
