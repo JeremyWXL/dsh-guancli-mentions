@@ -307,13 +307,15 @@ export function buildProbeScript() {
   // bodies so the selector extractor can be written against real payloads.
 
   /** Per-page capture budgets; recon must never flood the console. */
-  const NET_MAX_COMPACT = 120
+  const NET_MAX_COMPACT = 200
   const NET_MAX_DETAILED = 30
+  /** Card data queries carry the interaction state — always detailed. */
+  const NET_MAX_CARD_DETAILED = 60
   /** Static assets and telemetry never carry dashboard state. */
   const NET_SKIP_PATH = /\\.(?:js|css|png|jpe?g|gif|svg|webp|woff2?|map|ico)(?:[?#]|$)|\\/(?:static|vendor|polyfill)\\/|log|track|sentry|monitor|heartbeat/i
   /** Paths whose JSON bodies are always captured in detail. */
   const NET_DETAIL_PATH = /query|condition|selector|filter|page|card|data|ds|batch|search|report|chart/i
-  const netState = { seen: new Set(), compact: 0, detailed: 0 }
+  const netState = { seen: new Set(), compact: 0, detailed: 0, cardDetailed: 0 }
 
   /**
    * Live selector state learned from card query payloads, keyed by the
@@ -386,8 +388,10 @@ export function buildProbeScript() {
   }
 
   /**
-   * Report one request: a compact inventory line per unique signature, plus a
-   * detailed JSON-body dump for query-looking endpoints.
+   * Report one request: a compact inventory line per unique signature
+   * (GETs included — drill/param endpoints may be GET), plus a detailed
+   * JSON-body dump for query-looking endpoints. Card data queries are
+   * always detailed under their own budget: their body IS the state.
    */
   function netCapture(method, rawUrl, body) {
     const url = netUrl(rawUrl)
@@ -395,22 +399,36 @@ export function buildProbeScript() {
     const path = url.pathname
     if (NET_SKIP_PATH.test(path)) return
     const bodyText = typeof body === 'string' ? body : ''
+    const isCardData = NET_CARD_DATA_PATH.test(path)
     // State ingestion is independent of recon budgets: a card query updates
     // the live selector map even when its body is not worth reporting.
-    if (NET_CARD_DATA_PATH.test(path) && bodyText.charAt(0) === '{' && ingestCardQuery(bodyText)) {
+    if (isCardData && bodyText.charAt(0) === '{' && ingestCardQuery(bodyText)) {
       schedule()
     }
-    const key = method + ' ' + path + ' #' + String(bodyText.length) + ':' + bodyText.slice(0, 64)
+    const query = url.search ? url.search.slice(0, 200) : ''
+    const key = method + ' ' + path + '?' + query + ' #' + String(bodyText.length) + ':' + bodyText.slice(0, 64)
     if (netState.seen.has(key)) return
     netState.seen.add(key)
     if (netState.compact < NET_MAX_COMPACT) {
       netState.compact += 1
-      console.log(NET_PROBE_PREFIX + JSON.stringify({ kind: 'net-req', method, path, bodyBytes: bodyText.length, at: Date.now() }))
+      console.log(NET_PROBE_PREFIX + JSON.stringify({
+        kind: 'net-req',
+        method,
+        path,
+        ...(query === '' ? {} : { query }),
+        bodyBytes: bodyText.length,
+        at: Date.now(),
+      }))
     }
     if (bodyText === '' || bodyText.charAt(0) !== '{') return
-    if (!NET_DETAIL_PATH.test(path) && netState.detailed >= 5) return
-    if (netState.detailed >= NET_MAX_DETAILED) return
-    netState.detailed += 1
+    if (isCardData) {
+      if (netState.cardDetailed >= NET_MAX_CARD_DETAILED) return
+      netState.cardDetailed += 1
+    } else {
+      if (!NET_DETAIL_PATH.test(path) && netState.detailed >= 5) return
+      if (netState.detailed >= NET_MAX_DETAILED) return
+      netState.detailed += 1
+    }
     console.log(NET_PROBE_PREFIX + JSON.stringify({
       kind: 'net-req-body',
       method,
@@ -430,7 +448,7 @@ export function buildProbeScript() {
         try {
           const method = String((init && init.method) || (input && input.method) || 'GET').toUpperCase()
           const url = typeof input === 'string' ? input : String((input && input.url) || '')
-          if (method !== 'GET' && method !== 'HEAD') netCapture(method, url, init && init.body)
+          if (method !== 'HEAD') netCapture(method, url, init && init.body)
         } catch (_error) {}
         return original.apply(this, arguments)
       }
@@ -448,7 +466,7 @@ export function buildProbeScript() {
       proto.send = function (body) {
         try {
           const req = this.__guancliReq
-          if (req && req.method !== 'GET' && req.method !== 'HEAD') {
+          if (req && req.method !== 'HEAD') {
             netCapture(req.method, req.url, typeof body === 'string' ? body : '')
           }
         } catch (_error) {}
