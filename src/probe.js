@@ -195,13 +195,16 @@ export function buildProbeScript() {
   }
 
   /**
-   * Pick the selector list: the runtime broadcast wins only when it
-   * actually carries entries, then the identified-widget DOM pass, then
-   * the wide pass. Entries are origin-tagged. 'precise' is false when the
-   * wide pass carried the result — that is exactly when a DOM recon
-   * report is most needed.
+   * Pick the selector list: network-captured filters win (they carry the
+   * exact selector→field→dataset binding from the BI query payload), then
+   * the runtime broadcast when it actually carries entries, then the
+   * identified-widget DOM pass, then the wide pass. Entries are
+   * origin-tagged. 'precise' is false only when the wide pass carried the
+   * result — that is exactly when a DOM recon report is most needed.
    */
   function resolveSelectors() {
+    const net = [...netSelectors.values()].filter((entry) => entry.applied !== false)
+    if (net.length > 0) return { list: net.slice(0, MAX_SELECTORS), precise: true }
     const runtime = runtimeContext && typeof runtimeContext === 'object' ? runtimeContext : {}
     if (Array.isArray(runtime.selectors) && runtime.selectors.length > 0) {
       return { list: runtime.selectors.slice(0, MAX_SELECTORS).map((selector) => ({ origin: 'runtime', ...selector })), precise: true }
@@ -312,6 +315,68 @@ export function buildProbeScript() {
   const NET_DETAIL_PATH = /query|condition|selector|filter|page|card|data|ds|batch|search|report|chart/i
   const netState = { seen: new Set(), compact: 0, detailed: 0 }
 
+  /**
+   * Live selector state learned from card query payloads, keyed by the
+   * source selector control id. Each /api/card/<cdId>/data request repeats
+   * the page's applied filters with exact bindings:
+   *   { name, fdId, dsId, cdId, filterType, sourceCdId, filterValue[] }
+   * so one entry per selector aggregates every bound (dsId, field) pair.
+   */
+  const netSelectors = new Map()
+
+  /** Card data queries repeat the applied page filters in their body. */
+  const NET_CARD_DATA_PATH = /\\/api\\/card\\/[a-z0-9]{24}\\/data$/i
+
+  /**
+   * Fold one card-query body into netSelectors. A filter entry with an
+   * empty filterValue means the selector was cleared for that card.
+   * @returns whether any selector entry changed.
+   */
+  function ingestCardQuery(bodyText) {
+    let parsed
+    try {
+      parsed = JSON.parse(bodyText)
+    } catch (_error) {
+      return false
+    }
+    const filters = parsed && Array.isArray(parsed.filters) ? parsed.filters : null
+    if (filters === null) return false
+    let changed = false
+    for (const filter of filters) {
+      if (filter === null || typeof filter !== 'object') continue
+      const selectorId = String(filter.sourceCdId || '')
+      if (selectorId === '') continue
+      const values = (Array.isArray(filter.filterValue) ? filter.filterValue : [])
+        .map((value) => (value === null || typeof value === 'object' ? JSON.stringify(value) : String(value)))
+        .filter((value) => value !== '')
+        .slice(0, MAX_VALUES)
+      let entry = netSelectors.get(selectorId)
+      if (entry === undefined) {
+        entry = { selectorId, name: '', operator: '', values: [], displayValues: [], targets: [], origin: 'net', applied: false }
+        netSelectors.set(selectorId, entry)
+      }
+      const name = String(filter.name || '')
+      const operator = String(filter.filterType || '')
+      const display = (Array.isArray(filter.displayValue) ? filter.displayValue : [])
+        .map((value) => String(value || ''))
+        .filter((value) => value !== '')
+        .slice(0, MAX_VALUES)
+      if (name !== '' && entry.name !== name) { entry.name = name; changed = true }
+      if (operator !== '' && entry.operator !== operator) { entry.operator = operator; changed = true }
+      if (JSON.stringify(entry.values) !== JSON.stringify(values)) { entry.values = values; changed = true }
+      if (display.length > 0 && JSON.stringify(entry.displayValues) !== JSON.stringify(display)) { entry.displayValues = display; changed = true }
+      const applied = values.length > 0
+      if (entry.applied !== applied) { entry.applied = applied; changed = true }
+      const dsId = String(filter.dsId || '')
+      const fdId = String(filter.fdId || '')
+      if (dsId !== '' && !entry.targets.some((target) => String(target.dsId) === dsId && String(target.fdId) === fdId)) {
+        entry.targets.push({ dsId, name, fdId })
+        changed = true
+      }
+    }
+    return changed
+  }
+
   function netUrl(rawUrl) {
     try {
       return new URL(rawUrl, location.href)
@@ -330,6 +395,11 @@ export function buildProbeScript() {
     const path = url.pathname
     if (NET_SKIP_PATH.test(path)) return
     const bodyText = typeof body === 'string' ? body : ''
+    // State ingestion is independent of recon budgets: a card query updates
+    // the live selector map even when its body is not worth reporting.
+    if (NET_CARD_DATA_PATH.test(path) && bodyText.charAt(0) === '{' && ingestCardQuery(bodyText)) {
+      schedule()
+    }
     const key = method + ' ' + path + ' #' + String(bodyText.length) + ':' + bodyText.slice(0, 64)
     if (netState.seen.has(key)) return
     netState.seen.add(key)

@@ -1,6 +1,6 @@
 {
   "name": "@local/dsh-guancli-mentions",
-  "version": "0.5.13",
+  "version": "0.5.14",
   "private": true,
   "description": "Mention authorized Guandata datasets and dashboards from the DSH composer.",
   "type": "module",

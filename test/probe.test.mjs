@@ -40,6 +40,9 @@ test('buildProbeScript returns a guarded IIFE string', () => {
   assert.match(script, /function unhookNetwork\(\)/u, 'network hook must be restorable')
   assert.ok(script.includes(`console.log(NET_PROBE_PREFIX + JSON.stringify`), 'network recon logs with its prefix')
   assert.ok(script.includes('unhookNetwork()'), 'stop() must restore fetch/XHR')
+  assert.match(script, /function ingestCardQuery\(/u, 'card-query ingestion must exist')
+  assert.ok(script.includes("origin: 'net'"), 'net-captured selectors are origin-tagged')
+  assert.match(script, /api..card..\[a-z0-9\]\{24\}..data/u, 'card data path pattern must exist')
   // The script must be syntactically valid on its own.
   new Function(script)
 })

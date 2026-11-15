@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.14
+
+- **网络路径证实可行，探针转正**：侦察抓到 `POST /api/card/<cdId>/data` 请求体——每次筛选变化，BI 都会带上完整 `{name, fdId, dsId, cdId, filterType, sourceCdId, filterValue[]}` 重新查询。新增 `ingestCardQuery`：按 `sourceCdId` 聚合出 selector 条目（name/operator/values/`targets:[{dsId,name,fdId}]`，`origin:'net'`），正是 `withDashboardFilters` 合并所需结构。`resolveSelectors` 优先级改为 **net > runtime > dom > wide**；空 `filterValue` 视为该卡片上筛选被清除（`applied:false`）。已知限制：整页清除某筛选时，若后续请求完全不再提及该 selector，旧值可能短暂残留（下次含该 selector 的请求会纠正）。
+
 ## 0.5.13
 
 - **网络侦察探针（可行性验证版）**：在 guest 页面 hook `fetch` / `XMLHttpRequest`，捕获 BI 页面自身 API 调用——紧凑清单行（method+path+body 字节数，按签名去重，≤120 条）+ 疑似查询接口的 JSON 请求体详情（≤30 条，单条 ≤12 KB）。理由：广播通道 `GUANDATA_DASHBOARD_CONTEXT` 在该 BI 版本前端全部 bundle 中 0 命中（不存在）；DOM 通道拿不到筛选器→字段映射。BI 每次筛选变化都经 HTTP 重新查询，请求体天然带完整 selector→field→dataset 映射。
