@@ -4,14 +4,16 @@
 
 授权模型是**环境级**的：不需要会话绑定任何观远 Agent。只要 `guancli auth login` 过某个 BI 环境，该环境的数据集与看板就能被 `@`、能被查询。
 
+插件是自包含的：唯一外部应用依赖是本机 `guancli`，环境发现、资产搜索和详情 inspect 都由本插件直接调用 CLI。DSH 宿主仅提供 `webServer`、`tools`、`dsh-llm`、`dsh-tools` 与 Client UI 服务，不需要额外的观远 DSH 插件。
+
 ## 组成
 
 | 半边 | 文件 | 职责 |
 |---|---|---|
 | Browser | `client.js` | 注册 `@` source；按「观远数据集 / 观远看板」分节；空状态给出可执行的解释行 |
-| Host | `index.js` | 环境发现与缓存、候选检索、`agent/pre-step` 解析引用并注入上下文、四个只读查询工具 |
+| Host | `index.js` | 环境发现与缓存、候选检索、`agent/pre-step` 解析引用并注入上下文、七个只读查询工具 |
 | 共用 | `src/mention.js` | mention 语法（含环境）、查询分段、环境选择、上下文渲染 |
-| CLI | `src/cli.js` | 极简 guancli runner（`auth list` 解析 + `preview` 类只读查询），`shell:false` 参数数组 |
+| CLI | `src/cli.js` | guancli runner（`auth list`、`search`/`get`、preview、URL 与聚合查询），JSON 归一化，`shell:false` 参数数组 |
 
 ## 环境是怎么定的
 
@@ -29,7 +31,7 @@
 @[经营看板](dsh-guancli:page:demo:<pageId>)
 ```
 
-Host 在模型步骤前：解析 mention → 复核该环境仍处于鉴权状态 → 用该环境凭据 `inspect` 资产 → 改写为可读 `@名称` 并追加一条 `<referenced-assets>` 上下文（类型、环境、ID、字段口径，带不可信内容警告）。
+Host 在模型步骤前：解析 mention → 复核该环境仍处于鉴权状态 → 用该环境凭据直接执行 `guancli ds get` / `page get -f json` → 保留原 wire mention，并追加一条 `<referenced-assets>` 上下文（类型、环境、ID、字段口径，带不可信内容警告）。
 
 已发送消息中的引用渲染为**可点击链接**（📊 看板 / 🗂️ 数据集）：点击后通过 `guancli url` 解析 BI 前端地址，并在右侧栏内置浏览器中直接打开这张看板/数据集详情页（`sidebarRight.openTab('browser', …)`）。
 
@@ -73,7 +75,7 @@ by/metric/filters 的字段必须来自 `guancli_asset_overview` 的字段清单
 ## 安全边界
 
 - 候选与校验都只认 `guancli auth list` 里有效的环境；不在其中的环境一律拒绝。
-- 只读：`ds get` / `ds preview` / `page get` / `card preview`，以及插件自己生成并经字段白名单校验的聚合 SQL（模型不接触裸 SQL）；没有写入、没有 ETL。
+- 只读：`ds search` / `page search` / `ds get` / `page get` / `ds preview` / `card preview`，以及插件自己生成并经字段白名单校验的聚合 SQL（模型不接触裸 SQL）；没有写入、没有 ETL。
 - 参数走数组 + `shell: false`；输出 2 MiB 上限；查询行数硬上限 200。
 - 本地 RPC 仅 Loopback + 同源 POST + JSON（≤64 KiB），拒绝跨站。
 - 资产定义以「不可信背景」注入，`<` 全部转义，超 6 KB 截断并标注。
@@ -84,7 +86,7 @@ by/metric/filters 的字段必须来自 `guancli_asset_overview` 的字段清单
 curl -s -X POST http://127.0.0.1:43129/guancli-mentions/v1/rpc \
   -H 'content-type: application/json' -H 'origin: http://127.0.0.1:43129' \
   -d '{"action":"health"}'
-# {"version":"0.2.0","gateway":true,"environmentCount":10,"tools":"ready",...}
+# {"version":"0.6.0","backend":"guancli","environmentCount":10,"tools":"ready",...}
 
 curl -s -X POST http://127.0.0.1:43129/guancli-mentions/v1/rpc \
   -H 'content-type: application/json' -H 'origin: http://127.0.0.1:43129' \
@@ -92,8 +94,10 @@ curl -s -X POST http://127.0.0.1:43129/guancli-mentions/v1/rpc \
 ```
 
 ```bash
-node --test test/mention.test.mjs test/analysis.test.mjs test/cli.test.mjs test/client.test.mjs test/host.test.mjs
+node --test
 ```
+
+完整测试包含 ask-widget、Client、Host、CLI、probe、mention 与分析工具回归。
 
 ## 边界
 

@@ -1,5 +1,45 @@
 # Changelog
 
+## 0.6.1
+
+- 修复真实 guancli 搜索兼容性：搜索与详情改用全局 `--raw`，避免 `-f json` 仍返回人类可读文本。
+- 适配原始响应的 `response.contents`；页面搜索在 raw 模式会忽略关键词并返回完整目录树，现在递归展开页面节点，并按名称和完整目录路径在本地筛选。
+- 新增 raw 数据集、嵌套页面目录树及无匹配结果回归测试；在 DSH Desktop 禁用基础插件的状态下验证真实资产搜索。
+
+## 0.6.0
+
+- 插件自包含：移除对 companion DSH 插件与 `guandataGateway` 的运行时、UI、错误文案和测试依赖，唯一外部应用依赖为本机 `guancli`。
+- `@` 候选直接调用 `guancli ds search` / `page search -f json`；mention enrich、页面 overview 与 `guancli_asset_inspect` 直接调用 `ds get` / `page get -f json`。
+- 新增 CLI JSON 归一化：兼容裸数组及常见嵌套 envelope、数据集/页面 ID 与名称别名、字符串/节点数组/目录对象路径；inspect 保留完整字段定义，候选结构保持 `{type,id,name,path?,env}`。
+- health 改报 `backend: "guancli"`，移除 `gateway` 状态和 `no-gateway` UI 状态；新增无 Gateway 的 health、候选、mention enrich、asset inspect/page overview 回归测试。
+
+## 0.5.24
+
+- 修复同一 host 存在多个 profile 时页面提问误选首个环境的问题：会话已选环境优先，否则使用 CLI 默认环境，不再把 jpyy 看板错误解析到 Public。
+
+## 0.5.23
+
+- 同时声明 `remote` 与 `remote.session` 两层 Cordis 注入，避免读取父级或嵌套会话服务时分别出现 `without inject` 错误。
+
+## 0.5.22
+
+- 按 Cordis 嵌套服务契约声明 `inject: ['remote.session']`，修复 `cannot get property "remote.session" without inject`。
+
+## 0.5.21
+
+- 补齐 `remote` 服务的 Cordis `inject` 声明，修复页面提问回执 `cannot get property "remote" without inject`。
+- 测试环境模拟未声明服务时的真实失败，覆盖直接属性访问与服务注入两个必要条件。
+
+## 0.5.20
+
+- 修复页面内“问 Agent”投递失败：按当前 DSH 客户端契约使用 `ctx.remote.session.prompt`，不再通过 `ctx.get('remote')` 获取会话服务。
+- 新增从 sessionId 捕获、webview 提问到远程 prompt 投递的端到端回归测试。
+
+## 0.5.19
+
+- 修复卡片预览在 guancli 1.0.71 下因缺少 `--with-default-filters` 而失败的问题；页面上下文现在会应用默认筛选器。
+- 修复 Host 测试启动等待偶发失败，改为有截止时间的条件轮询。
+
 ## 0.5.14
 
 - **网络路径证实可行，探针转正**：侦察抓到 `POST /api/card/<cdId>/data` 请求体——每次筛选变化，BI 都会带上完整 `{name, fdId, dsId, cdId, filterType, sourceCdId, filterValue[]}` 重新查询。新增 `ingestCardQuery`：按 `sourceCdId` 聚合出 selector 条目（name/operator/values/`targets:[{dsId,name,fdId}]`，`origin:'net'`），正是 `withDashboardFilters` 合并所需结构。`resolveSelectors` 优先级改为 **net > runtime > dom > wide**；空 `filterValue` 视为该卡片上筛选被清除（`applied:false`）。已知限制：整页清除某筛选时，若后续请求完全不再提及该 selector，旧值可能短暂残留（下次含该 selector 的请求会纠正）。

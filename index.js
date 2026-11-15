@@ -119,11 +119,6 @@ class Runtime {
     this.environmentCache = { at: now, value }
     return value
   }
-
-  /** @returns the Guandata gateway service, when composed. */
-  gateway() {
-    return this.ctx.get('guandataGateway') ?? undefined
-  }
 }
 
 /**
@@ -265,7 +260,7 @@ async function dispatch(runtime, action, input) {
     }
     return {
       version: VERSION,
-      gateway: runtime.gateway() !== undefined,
+      backend: 'guancli',
       clientModule,
       environmentCount,
       tools: runtime.toolState,
@@ -383,7 +378,7 @@ function readDashboardContext(runtime, _sessionId = '') {
  * Environment-scoped candidates for one session.
  *
  * The state travels with the rows so the composer can explain an empty list:
- * `need-query`, `no-match`, `no-environment`, `no-gateway`, `no-cli`, `error`.
+ * `need-query`, `no-match`, `no-environment`, `no-cli`, `error`.
  * @param runtime - plugin runtime.
  * @param input - `{ sessionId, query? }`.
  * @returns rows plus the query state.
@@ -391,7 +386,6 @@ function readDashboardContext(runtime, _sessionId = '') {
 async function candidates(runtime, input) {
   const sessionId = String(input?.sessionId ?? '').trim()
   if (sessionId === '') throw new MentionError('SESSION_REQUIRED', '缺少 sessionId', 400)
-  const gateway = runtime.gateway()
   let envs
   try {
     envs = await runtime.environments()
@@ -410,10 +404,9 @@ async function candidates(runtime, input) {
   })
   if (requested !== undefined) runtime.sessionEnvironment.set(sessionId, env)
   if (keyword === '') return { items: [], state: 'need-query', env, environments: names }
-  if (gateway === undefined) return { items: [], state: 'no-gateway', env, environments: names }
   const [datasets, pages] = await Promise.all([
-    search(gateway, env, 'dataset', keyword),
-    search(gateway, env, 'page', keyword),
+    search(runtime, env, 'dataset', keyword),
+    search(runtime, env, 'page', keyword),
   ])
   const items = [...datasets.rows, ...pages.rows]
   if (datasets.failed && pages.failed) {
@@ -429,19 +422,23 @@ async function candidates(runtime, input) {
 }
 
 /**
- * Search one asset type through the Guandata plugin's normalized discovery.
- * @param gateway - the Guandata gateway service.
+ * Search one asset type through guancli's normalized discovery.
+ * @param runtime - plugin runtime.
  * @param env - authenticated environment name.
  * @param type - `dataset` or `page`.
  * @param query - keyword.
  * @returns rows plus a failure flag.
  */
-async function search(gateway, env, type, query) {
+async function search(runtime, env, type, query) {
   try {
-    const result = await gateway.rpc('assets.search', { profile: env, type, query })
-    const list = Array.isArray(result) ? result : []
+    const assets = await runtime.cli().searchAssets({
+      profile: env,
+      assetType: type,
+      query,
+      limit: CANDIDATE_LIMIT_PER_TYPE,
+    })
     return {
-      rows: list.slice(0, CANDIDATE_LIMIT_PER_TYPE).map((asset) => ({
+      rows: assets.slice(0, CANDIDATE_LIMIT_PER_TYPE).map((asset) => ({
         type: asset.type === 'page' ? 'page' : 'dataset',
         id: String(asset.id),
         name: String(asset.name ?? asset.id),
@@ -517,13 +514,6 @@ async function enrichMessages(runtime, payload, messages) {
   const list = Array.isArray(messages) ? messages : []
   const hasMentionMessage = list.some((message) => hasMention(message))
   if (!hasMentionMessage && !list.some((message) => asksForDashboard(message))) return messages
-  const gateway = runtime.gateway()
-  if (gateway === undefined) {
-    throw new MentionError(
-      'GATEWAY_UNAVAILABLE',
-      '观远引用无法解析：未安装或未启用 @guandata/dsh-guancli 插件。',
-    )
-  }
   let envs
   try {
     envs = await runtime.environments()
@@ -561,7 +551,7 @@ async function enrichMessages(runtime, payload, messages) {
     for (const ref of selected) {
       assertEnvironment(envs.environments, ref.env)
       runtime.sessionEnvironment.set(sessionId, ref.env)
-      entries.push(await describe(gateway, ref, payload.signal))
+      entries.push(await describe(runtime, ref, payload.signal))
     }
     // Keep the original message untouched: the wire mention is what the
     // composer serialized and what the UI renderer matches to show the
@@ -579,19 +569,20 @@ async function enrichMessages(runtime, payload, messages) {
 /**
  * Read one referenced asset's definition through the environment's own CLI
  * credentials; a wrong id or an unreadable asset fails the turn here.
- * @param gateway - the Guandata gateway service.
+ * @param runtime - plugin runtime.
  * @param ref - parsed mention.
  * @param signal - turn cancellation.
  * @returns the context entry.
  */
-async function describe(gateway, ref, signal) {
+async function describe(runtime, ref, signal) {
   let detail
   try {
-    detail = await gateway.rpc('assets.inspect', {
+    detail = await runtime.cli().inspectAsset({
       profile: ref.env,
-      type: ref.type,
-      id: ref.id,
+      assetType: ref.type,
+      assetId: ref.id,
       name: ref.label,
+      signal,
     })
   } catch (error) {
     throw new MentionError(
@@ -741,7 +732,7 @@ async function overviewDataset(runtime, profile, datasetId, signal) {
 }
 
 /**
- * asset_overview: page path — card structure via the Guandata plugin's inspect.
+ * asset_overview: page path — card structure via direct guancli inspect.
  * @param runtime - plugin runtime.
  * @param profile - environment.
  * @param pageId - page id.
@@ -749,9 +740,9 @@ async function overviewDataset(runtime, profile, datasetId, signal) {
  * @returns overview payload.
  */
 async function overviewPage(runtime, profile, pageId, signal) {
-  const detail = await requireGateway(runtime).rpc('assets.inspect', {
-    profile, type: 'page', id: pageId,
-  }, signal)
+  const detail = await runtime.cli().inspectAsset({
+    profile, assetType: 'page', assetId: pageId, signal,
+  })
   return {
     profile,
     type: 'page',
@@ -1191,11 +1182,12 @@ async function registerTools(runtime) {
     output: jsonOutput,
     execute: async (args, exec) => {
       await assertProfile(runtime, args.profile)
-      return await requireGateway(runtime).rpc('assets.inspect', {
+      return await runtime.cli().inspectAsset({
         profile: args.profile,
-        type: args.assetType,
-        id: args.assetId,
-      }, exec.signal)
+        assetType: args.assetType,
+        assetId: String(args.assetId),
+        signal: exec.signal,
+      })
     },
     timeoutMs: 60_000,
     isConcurrencySafe: () => true,
@@ -1250,18 +1242,6 @@ async function registerTools(runtime) {
   }))
 
   runtime.toolState = 'ready'
-}
-
-/**
- * @param runtime - plugin runtime.
- * @returns the Guandata gateway service.
- */
-function requireGateway(runtime) {
-  const gateway = runtime.gateway()
-  if (gateway === undefined) {
-    throw new MentionError('GATEWAY_UNAVAILABLE', '未安装或未启用 @guandata/dsh-guancli 插件。', 503)
-  }
-  return gateway
 }
 
 /**

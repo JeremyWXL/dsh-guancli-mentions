@@ -33,10 +33,16 @@ function loadClientModule() {
 }
 
 /** Build one client context that captures dictionaries, the source, and slot nodes. */
-function harness() {
+function harness(options = {}) {
   const body = loadClientModule()
   const captured = { dictionaries: undefined, source: undefined, rules: [], nodes: [], cleanups: [] }
   const ctx = {
+    get remote() {
+      for (const name of ['remote', 'remote.session']) {
+        if (!body.inject.includes(name)) throw new Error(`cannot get property "${name}" without inject`)
+      }
+      return options.remote
+    },
     effect(run) {
       const cleanup = run()
       if (typeof cleanup === 'function') {
@@ -439,4 +445,73 @@ test('the watcher self-reports its state through the recon channel', async () =>
   assert.equal(state.webviews, 1)
   assert.equal(state.biWebviews, 1)
   assert.ok(state.probeScriptChars > 1000)
+})
+
+
+test('page questions are delivered through the current remote session prompt', async () => {
+  const prompts = []
+  const remote = {
+    session: {
+      async prompt(input) {
+        prompts.push(input)
+      },
+    },
+  }
+  const handlers = new Map()
+  const webview = {
+    getURL: () => 'https://demo.guandata.com/page/g8a4f06e5ad614b7e996ffb2',
+    addEventListener(name, fn) {
+      handlers.set(name, fn)
+    },
+    async executeJavaScript() {
+      return 'installed'
+    },
+  }
+  const originalDocument = globalThis.document
+  globalThis.document = { querySelectorAll: () => [webview] }
+  try {
+    await withFetch(async (_url, init) => {
+      const body = JSON.parse(init.body)
+      if (body.action === 'health') return { json: async () => ({ ok: true, data: { version: '0.5.19' } }) }
+      if (body.action === 'environments') {
+        return { json: async () => ({ ok: true, data: { defaultProfile: 'default', environments: [{ name: 'Public', url: 'https://demo.guandata.com' }, { name: 'default', url: 'https://demo.guandata.com' }] } }) }
+      }
+      if (body.action === 'candidates') {
+        return { json: async () => ({ ok: true, data: { state: 'need-query', env: 'default', environments: ['Public', 'default'], items: [] } }) }
+      }
+      return { json: async () => ({ ok: true, data: { accepted: true } }) }
+    }, async () => {
+      const { captured } = harness({ remote })
+      await new Promise((resolve) => setImmediate(resolve))
+      await new Promise((resolve) => setImmediate(resolve))
+      await captured.source.candidates(session, { query: '', quoted: false })
+      handlers.get('console-message')({
+        message: '__GUANCLI_DASHBOARD_CONTEXT__' + JSON.stringify({
+          pageId: 'g8a4f06e5ad614b7e996ffb2',
+          pageName: '销售分析',
+          url: 'https://demo.guandata.com/page/g8a4f06e5ad614b7e996ffb2',
+          selectors: [],
+          focusedCardId: '',
+          capturedAt: 1730000000000,
+        }),
+      })
+      handlers.get('console-message')({
+        message: '__GUANCLI_PAGE_ASK__' + JSON.stringify({
+          text: '分析当前看板',
+          url: 'https://demo.guandata.com/page/g8a4f06e5ad614b7e996ffb2',
+          at: 1730000000000,
+        }),
+      })
+      await new Promise((resolve) => setImmediate(resolve))
+      await new Promise((resolve) => setImmediate(resolve))
+      for (const cleanup of captured.cleanups) cleanup()
+    })
+  } finally {
+    globalThis.document = originalDocument
+  }
+  assert.equal(prompts.length, 1, 'the page question must reach remote.session.prompt')
+  assert.equal(prompts[0].sessionId, 'session-1')
+  assert.equal(prompts[0].mode, 'queue')
+  assert.match(prompts[0].content[0].text, /分析当前看板/u)
+  assert.match(prompts[0].content[0].text, /dsh-guancli:page:default:g8a4f06e5ad614b7e996ffb2/u)
 })

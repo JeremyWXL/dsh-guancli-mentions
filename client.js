@@ -24,8 +24,6 @@ window.__ModuleLoader__.load({
       'hint.noEnvironment.description': '先执行 guancli auth login 再回来使用 @',
       'hint.noCli': '未找到或无法调用 guancli',
       'hint.noCli.description': '确认 guancli 已安装并可从该用户执行',
-      'hint.noGateway': '观远插件未启用，无法搜索资产',
-      'hint.noGateway.description': '需安装 @guandata/dsh-guancli 以复用资产检索',
       'hint.error': '观远资产搜索失败',
       'hint.error.description': '稍后重试；若持续失败请检查 BI 连接状态',
       'hint.unknownEnvironment': '环境 {env} 未在 guancli 鉴权',
@@ -46,8 +44,6 @@ window.__ModuleLoader__.load({
       'hint.noEnvironment.description': 'Run guancli auth login, then use @ again',
       'hint.noCli': 'guancli is missing or not callable',
       'hint.noCli.description': 'Check that guancli is installed and runnable for this user',
-      'hint.noGateway': 'The Guandata plugin is disabled, so assets cannot be searched',
-      'hint.noGateway.description': 'Install @guandata/dsh-guancli to reuse its asset discovery',
       'hint.error': 'Guandata asset search failed',
       'hint.error.description': 'Retry later; if it persists, check the BI connection',
       'hint.unknownEnvironment': 'Environment {env} is not authenticated in guancli',
@@ -68,8 +64,6 @@ window.__ModuleLoader__.load({
       'hint.noEnvironment.description': 'guancli auth login を実行してから @ を使ってください',
       'hint.noCli': 'guancli が見つからないか実行できません',
       'hint.noCli.description': 'guancli がインストールされ実行可能か確認してください',
-      'hint.noGateway': 'Guandata プラグインが無効のためアセットを検索できません',
-      'hint.noGateway.description': '@guandata/dsh-guancli をインストールしてください',
       'hint.error': 'Guandata アセットの検索に失敗しました',
       'hint.error.description': '後で再試行してください。続く場合は BI 接続を確認してください',
       'hint.unknownEnvironment': '環境 {env} は guancli で認証されていません',
@@ -90,8 +84,6 @@ window.__ModuleLoader__.load({
       'hint.noEnvironment.description': 'Ejecute guancli auth login y vuelva a usar @',
       'hint.noCli': 'guancli no está instalado o no se puede ejecutar',
       'hint.noCli.description': 'Compruebe que guancli esté instalado y disponible',
-      'hint.noGateway': 'El plugin de Guandata está desactivado; no se pueden buscar activos',
-      'hint.noGateway.description': 'Instale @guandata/dsh-guancli para reutilizar su descubrimiento',
       'hint.error': 'Falló la búsqueda de activos de Guandata',
       'hint.error.description': 'Reintente más tarde; si persiste, revise la conexión BI',
       'hint.unknownEnvironment': 'El entorno {env} no está autenticado en guancli',
@@ -112,8 +104,6 @@ window.__ModuleLoader__.load({
       'hint.noEnvironment.description': 'Lancez guancli auth login puis réutilisez @',
       'hint.noCli': 'guancli est absent ou non exécutable',
       'hint.noCli.description': 'Vérifiez que guancli est installé et exécutable',
-      'hint.noGateway': 'Le plugin Guandata est désactivé ; recherche impossible',
-      'hint.noGateway.description': 'Installez @guandata/dsh-guancli pour réutiliser sa découverte',
       'hint.error': 'Échec de la recherche d’actifs Guandata',
       'hint.error.description': 'Réessayez plus tard ; vérifiez la connexion BI si cela persiste',
       'hint.unknownEnvironment': "L'environnement {env} n'est pas authentifié dans guancli",
@@ -134,8 +124,6 @@ window.__ModuleLoader__.load({
       'hint.noEnvironment.description': 'Führen Sie guancli auth login aus und nutzen Sie @ erneut',
       'hint.noCli': 'guancli fehlt oder ist nicht ausführbar',
       'hint.noCli.description': 'Prüfen Sie, ob guancli installiert und ausführbar ist',
-      'hint.noGateway': 'Das Guandata-Plugin ist deaktiviert; Assets nicht durchsuchbar',
-      'hint.noGateway.description': 'Installieren Sie @guandata/dsh-guancli',
       'hint.error': 'Guandata-Assetsuche fehlgeschlagen',
       'hint.error.description': 'Später erneut versuchen; sonst BI-Verbindung prüfen',
       'hint.unknownEnvironment': 'Umgebung {env} ist in guancli nicht authentifiziert',
@@ -156,8 +144,6 @@ window.__ModuleLoader__.load({
       'hint.noEnvironment.description': 'Выполните guancli auth login и снова используйте @',
       'hint.noCli': 'guancli не найден или не запускается',
       'hint.noCli.description': 'Проверьте, что guancli установлен и доступен',
-      'hint.noGateway': 'Плагин Guandata отключён, поиск активов недоступен',
-      'hint.noGateway.description': 'Установите @guandata/dsh-guancli',
       'hint.error': 'Не удалось выполнить поиск активов Guandata',
       'hint.error.description': 'Повторите позже; проверьте подключение к BI',
       'hint.unknownEnvironment': 'Среда {env} не авторизована в guancli',
@@ -178,8 +164,6 @@ window.__ModuleLoader__.load({
       'hint.noEnvironment.description': 'Execute guancli auth login e use @ novamente',
       'hint.noCli': 'guancli ausente ou não executável',
       'hint.noCli.description': 'Verifique se o guancli está instalado e disponível',
-      'hint.noGateway': 'O plugin Guandata está desativado; busca indisponível',
-      'hint.noGateway.description': 'Instale @guandata/dsh-guancli',
       'hint.error': 'Falha na busca de ativos Guandata',
       'hint.error.description': 'Tente mais tarde; verifique a conexão BI',
       'hint.unknownEnvironment': 'O ambiente {env} não está autenticado no guancli',
@@ -280,6 +264,10 @@ window.__ModuleLoader__.load({
     /** Cached result of the one-time Host capability probe. */
     let hostReady
 
+    /** Current session identity, refreshed by the composer dock entry and
+     *  by @-mention candidate requests (both carry the active session). */
+    const sessionCapture = { sessionId: '', environment: '' }
+
     /** Lowest Host generation that serves environment-scoped candidates. */
     const MIN_HOST_VERSION = '0.2.0'
 
@@ -378,8 +366,6 @@ window.__ModuleLoader__.load({
             return hintRow(t('hint.noEnvironment'), t('hint.noEnvironment.description'))
           case 'no-cli':
             return hintRow(t('hint.noCli'), t('hint.noCli.description'))
-          case 'no-gateway':
-            return hintRow(t('hint.noGateway'), t('hint.noGateway.description'))
           default:
             return hintRow(t('hint.error'), t('hint.error.description'))
         }
@@ -405,6 +391,7 @@ window.__ModuleLoader__.load({
           if (request.quoted === true) return []
           const sessionId = String(session && session.sessionId ? session.sessionId : '')
           if (sessionId === '') return []
+          sessionCapture.sessionId = sessionId
           if (!(await ensureHost())) return [hintRow(t('hint.restart'), t('hint.restart.description'))]
           const keyword = String(request.query || '')
           const result = await rpc('candidates', { sessionId, query: keyword }, request.signal)
@@ -413,6 +400,7 @@ window.__ModuleLoader__.load({
             return [hintRow(t('hint.error'), t('hint.error.description'))]
           }
           const data = result.data
+          if (typeof data.env === 'string' && data.env !== '') sessionCapture.environment = data.env
           const items = Array.isArray(data.items) ? data.items : []
           if (items.length === 0) return [explain(data, keyword)]
           return items.map((item) => {
@@ -518,6 +506,28 @@ window.__ModuleLoader__.load({
     const DOM_PROBE_PREFIX = '__GUANCLI_DOM_PROBE__'
     const HEARTBEAT_PREFIX = '__GUANCLI_HEARTBEAT__'
     const NET_PROBE_PREFIX = '__GUANCLI_NET_PROBE__'
+    /** Console prefix the in-page ask widget logs with (mirror src/ask-widget.js). */
+    const ASK_PREFIX = '__GUANCLI_PAGE_ASK__'
+
+    /**
+     * Parse one console line from the ask widget (browser copy of
+     * src/ask-widget.js parseAskOutput, kept dependency-free).
+     * @param text - console message text.
+     * @returns the question object or null.
+     */
+    function parseAskOutputText(text) {
+      const raw = String(text ?? '')
+      if (!raw.startsWith(ASK_PREFIX)) return null
+      try {
+        const value = JSON.parse(raw.slice(ASK_PREFIX.length))
+        if (value === null || typeof value !== 'object' || Array.isArray(value)) return null
+        const question = String(value.text ?? '').trim()
+        if (question === '' || question.length > 4000) return null
+        return { text: question, url: String(value.url ?? '').slice(0, 500), at: Number(value.at ?? 0) }
+      } catch (_error) {
+        return null
+      }
+    }
 
     /**
      * Parse one console line from the injected probe (browser copy of the
@@ -549,9 +559,10 @@ window.__ModuleLoader__.load({
      * Match a URL's host against authenticated environment URLs.
      * @param rawUrl - webview URL.
      * @param environments - environment entries with urls.
+     * @param preferred - session-selected or CLI default environment.
      * @returns the environment name or null.
      */
-    function matchEnvironmentName(rawUrl, environments) {
+    function matchEnvironmentName(rawUrl, environments, preferred) {
       let host = ''
       try {
         host = new URL(String(rawUrl ?? '')).hostname.toLowerCase()
@@ -559,35 +570,42 @@ window.__ModuleLoader__.load({
         return null
       }
       if (host === '') return null
-      for (const environment of environments ?? []) {
+      const matches = (environment) => {
         try {
           const envHost = new URL(String(environment.url ?? '')).hostname.toLowerCase()
-          if (envHost !== '' && (host === envHost || host.endsWith(`.${envHost}`))) {
-            return String(environment.name)
-          }
+          return envHost !== '' && (host === envHost || host.endsWith(`.${envHost}`))
         } catch (_error) {
-          // Skip malformed entries.
+          return false
         }
       }
-      return null
+      const preferredEnvironment = (environments ?? []).find((environment) => environment.name === preferred)
+      if (preferredEnvironment !== undefined && matches(preferredEnvironment)) return String(preferredEnvironment.name)
+      return (environments ?? []).find((environment) => matches(environment))?.name ?? null
     }
 
     /** Inlined dashboard probe (generated from src/probe.js — do not edit by hand; run scripts/sync-probe.mjs). */
-    const PROBE_SCRIPT = "(() => {\n  const PROBE_VERSION = '0.5.15'\n  const existing = globalThis.__guancliDashboardProbe\n  if (existing && existing.version === PROBE_VERSION) return 'already-installed'\n  if (existing && typeof existing.stop === 'function') existing.stop()\n\n  const ID_PATTERN = /^[a-z0-9]{24}$/i\n  const ROOT_SELECTOR = '[data-selector-id],[data-cd-id],[data-card-id],[data-component-id]'\n  const MAX_SELECTORS = 30\n  const MAX_VALUES = 50\n  const DOM_PROBE_PREFIX = '__GUANCLI_DOM_PROBE__'\n  const HEARTBEAT_PREFIX = '__GUANCLI_HEARTBEAT__'\n  const NET_PROBE_PREFIX = '__GUANCLI_NET_PROBE__'\n  let focusedCardId = ''\n  let runtimeContext = null\n  let timer = null\n  let lastPublished = ''\n\n  function idFrom(element) {\n    if (!element) return ''\n    for (const name of ['data-selector-id', 'data-cd-id', 'data-card-id', 'data-component-id']) {\n      const value = element.getAttribute?.(name) || ''\n      if (ID_PATTERN.test(value)) return value\n    }\n    return ID_PATTERN.test(element.id || '') ? element.id : ''\n  }\n\n  function pageId() {\n    try {\n      const url = new URL(location.href)\n      for (const key of ['pageId', 'page_id', 'pgId', 'pg_id']) {\n        const value = url.searchParams.get(key) || new URLSearchParams(url.hash.split('?')[1] || '').get(key)\n        if (ID_PATTERN.test(value || '')) return value\n      }\n      const routeMatch = location.href.match(/(?:page|dashboard|analysis)[/=:]([a-z0-9]{24})(?:[/?#&]|$)/i)\n      if (routeMatch) return routeMatch[1]\n      for (const selector of ['[data-page-id]', '[data-pg-id]']) {\n        const node = document.querySelector(selector)\n        const value = node?.getAttribute(selector.includes('page') ? 'data-page-id' : 'data-pg-id') || ''\n        if (ID_PATTERN.test(value)) return value\n      }\n    } catch (_error) {}\n    return ''\n  }\n\n  function cleanText(value) {\n    return String(value || '').replace(/\\s+/g, ' ').trim().slice(0, 500)\n  }\n\n  function selectedValues(root) {\n    const values = []\n    const add = (value) => {\n      const normalized = cleanText(value)\n      if (!normalized || /^(全部|全选|请选择|搜索)$/i.test(normalized) || values.includes(normalized)) return\n      values.push(normalized)\n    }\n    for (const option of root.querySelectorAll('select option:checked')) add(option.value || option.textContent)\n    for (const input of root.querySelectorAll('input[type=\"checkbox\"]:checked,input[type=\"radio\"]:checked')) add(input.value || input.getAttribute('aria-label'))\n    for (const input of root.querySelectorAll('input:not([type=\"checkbox\"]):not([type=\"radio\"])')) if (input.value) add(input.value)\n    for (const node of root.querySelectorAll('[aria-selected=\"true\"],.ant-select-selection-item')) add(node.getAttribute('title') || node.textContent)\n    return values.slice(0, MAX_VALUES)\n  }\n\n  function domSelectors() {\n    const selections = []\n    const seen = new Set()\n    for (const root of document.querySelectorAll(ROOT_SELECTOR)) {\n      const selectorId = idFrom(root)\n      if (!selectorId || seen.has(selectorId)) continue\n      const values = selectedValues(root)\n      if (!values.length) continue\n      seen.add(selectorId)\n      selections.push({ selectorId, values, displayValues: values, operator: values.length > 1 ? 'IN' : 'EQ', origin: 'dom' })\n      if (selections.length >= MAX_SELECTORS) break\n    }\n    return selections\n  }\n\n  /**\n   * Wide-pass capture for BI builds whose filter widgets carry no\n   * data-* identity: aggregate selected pills per combobox, plus valued\n   * inputs and checked options. Fingerprinted by container class+label,\n   * origin-tagged 'dom-wide'; noise is accepted over silence — the merge\n   * step whitelists by field name anyway.\n   */\n  function wideSelectors() {\n    const out = []\n    const seen = new Set()\n    const push = (fingerprint, values, extra) => {\n      const cleaned = values.map(cleanText).filter((value) => value !== '')\n      // Unlabeled widgets are canvas layout controls (e.g. '自动铺满(70%)'),\n      // not filters — drop them; labeled ones are real selectors. Segmented\n      // widgets pass unnamed: their selected state is unambiguous.\n      if (cleaned.length === 0 || seen.has(fingerprint)) return\n      if ((extra?.name === undefined || extra.name === '') && extra?.widget !== 'segmented') return\n      seen.add(fingerprint)\n      out.push({\n        selectorId: 'wide-' + String(out.length + 1),\n        values: cleaned.slice(0, MAX_VALUES),\n        displayValues: cleaned.slice(0, MAX_VALUES),\n        operator: cleaned.length > 1 ? 'IN' : 'EQ',\n        origin: 'dom-wide',\n        ...extra,\n      })\n    }\n    for (const box of document.querySelectorAll('[role=\"combobox\"],.ant-select,[class*=\"Select\"],[class*=\"selector\"]')) {\n      // Canvas layout chrome (the '自动铺满(70%)' zoom control), not a filter.\n      if (String(box.className || '').includes('scale-selector') || box.closest('.scale-selector') !== null) continue\n      const items = [...box.querySelectorAll('.ant-select-selection-item,[aria-selected=\"true\"]')]\n      const pills = items\n        .map((el) => cleanText(el.getAttribute('title') || el.textContent))\n        .filter((value) => value !== '' && !/^(全部|全选|请选择|搜索)$/iu.test(value))\n      if (pills.length === 0 && !(items.length > 0 && box.matches('.SEL_select, [class*=\"SEL_\"]'))) continue\n      // Page filters in this BI build carry SEL_ class tokens; prefer a\n      // label from the nearest filter container over generic text.\n      const holder = box.closest('[class*=\"SEL_\"],[class*=\"filter\"],[class*=\"Filter\"],[class*=\"selector\"],[data-selector-id]')\n      const label = cleanText(\n        holder?.querySelector('[class*=\"title\"],[class*=\"label\"],label')?.textContent\n        || box.getAttribute('aria-label') || '',\n      ).slice(0, 40)\n      push('box:' + String(box.className || '').slice(0, 60) + ':' + label, pills, {\n        name: label || undefined,\n        ...(pills.length === 0 ? { applied: false } : {}),\n      })\n    }\n    // Segmented single-select widgets (e.g. LR=可用库存): the selected item\n    // is unambiguous even without a label, so accept unnamed ones — BI uses\n    // segmented almost exclusively for filters/switches, not layout.\n    for (const seg of document.querySelectorAll('.ant-segmented')) {\n      if (String(seg.className || '').includes('scale-selector') || seg.closest('.scale-selector') !== null) continue\n      const selected = seg.querySelector('.ant-segmented-item-selected')\n      const value = cleanText(selected?.textContent || '')\n      if (value === '' || /^(全部|全选|请选择|搜索)$/iu.test(value)) continue\n      const holder = seg.closest('[class*=\"SEL_\"],[class*=\"filter\"],[class*=\"Filter\"]')\n      const label = cleanText(\n        holder?.querySelector('[class*=\"title\"],[class*=\"label\"],label')?.textContent\n        || seg.getAttribute('aria-label') || '',\n      ).slice(0, 40)\n      push('seg:' + String(seg.className || '').slice(0, 60) + ':' + label, [value], { name: label || undefined, widget: 'segmented' })\n    }\n    for (const input of document.querySelectorAll('input:not([type=\"checkbox\"]):not([type=\"radio\"]):not([type=\"hidden\"])')) {\n      const value = cleanText(input.value)\n      if (value === '') continue\n      const label = cleanText(input.getAttribute('placeholder') || input.getAttribute('aria-label') || input.name || '').slice(0, 40)\n      push('input:' + String(input.name || input.id || input.className || '').slice(0, 60) + ':' + label, [value], { name: label || undefined })\n    }\n    for (const select of document.querySelectorAll('select')) {\n      const values = [...select.selectedOptions].map((option) => cleanText(option.value || option.textContent)).filter((value) => value !== '')\n      if (values.length === 0) continue\n      push('select:' + String(select.name || select.id || '').slice(0, 60), values, { name: cleanText(select.name || '').slice(0, 40) || undefined })\n    }\n    return out.slice(0, MAX_SELECTORS)\n  }\n\n  /**\n   * Pick the selector list: network-captured filters win (they carry the\n   * exact selector→field→dataset binding from the BI query payload), then\n   * the runtime broadcast when it actually carries entries, then the\n   * identified-widget DOM pass, then the wide pass. Entries are\n   * origin-tagged. 'precise' is false only when the wide pass carried the\n   * result — that is exactly when a DOM recon report is most needed.\n   */\n  function resolveSelectors() {\n    const net = [...netSelectors.values()].filter((entry) => entry.applied !== false)\n    if (net.length > 0) return { list: net.slice(0, MAX_SELECTORS), precise: true }\n    const runtime = runtimeContext && typeof runtimeContext === 'object' ? runtimeContext : {}\n    if (Array.isArray(runtime.selectors) && runtime.selectors.length > 0) {\n      return { list: runtime.selectors.slice(0, MAX_SELECTORS).map((selector) => ({ origin: 'runtime', ...selector })), precise: true }\n    }\n    const dom = domSelectors()\n    if (dom.length > 0) return { list: dom, precise: true }\n    return { list: wideSelectors(), precise: false }\n  }\n\n  function safeUrl() {\n    try {\n      const url = new URL(location.href)\n      const hashPath = url.hash ? url.hash.split('?')[0] : ''\n      return url.origin + url.pathname + hashPath\n    } catch (_error) {\n      return location.href\n    }\n  }\n\n  function snapshot() {\n    const runtime = runtimeContext && typeof runtimeContext === 'object' ? runtimeContext : {}\n    const currentPageId = String(runtime.pageId || pageId())\n    const resolved = resolveSelectors()\n    return {\n      pageId: currentPageId,\n      pageName: cleanText(runtime.pageName || document.querySelector('[data-page-name],h1')?.textContent || document.title),\n      url: safeUrl(),\n      selectors: resolved.list,\n      selectorPrecise: resolved.precise,\n      focusedCardId: String(runtime.focusedCardId || focusedCardId || ''),\n      capturedAt: Date.now(),\n    }\n  }\n\n  /** Last DOM recon emission, throttled to one per 30 seconds. */\n  let lastDomProbeAt = 0\n  /** Last heartbeat emission, throttled to one per 20 seconds. */\n  let lastHeartbeatAt = 0\n\n  /**\n   * Recon pass over unknown BI DOM: input/select inventory, data-* attribute\n   * names, and candidate listbox/filter containers. Sent only while the\n   * selector list stays empty so the plugin author can adapt the real DOM.\n   */\n  function domProbe() {\n    const inputs = []\n    for (const el of document.querySelectorAll('input, select, textarea')) {\n      inputs.push({\n        tag: el.tagName.toLowerCase(),\n        type: el.type || '',\n        name: el.getAttribute('name') || '',\n        placeholder: (el.getAttribute('placeholder') || '').slice(0, 60),\n        value: String(el.value ?? '').slice(0, 60),\n        cls: String(el.className || '').slice(0, 80),\n        label: String(el.getAttribute('aria-label') || (el.closest('label')?.textContent || '')).slice(0, 60),\n        data: Object.keys(el.dataset || {}).slice(0, 8),\n      })\n      if (inputs.length >= 40) break\n    }\n    const dataNames = new Set()\n    for (const el of document.querySelectorAll('[data-selector-id],[data-cd-id],[data-card-id],[data-component-id],[data-page-id]')) {\n      for (const attr of el.attributes) if (attr.name.startsWith('data-')) dataNames.add(attr.name)\n    }\n    const containers = []\n    for (const el of document.querySelectorAll('[role=\"listbox\"],[role=\"combobox\"],[class*=\"select\"],[class*=\"selector\"],[class*=\"filter\"]')) {\n      containers.push({\n        cls: String(el.className || '').slice(0, 80),\n        text: cleanText(el.textContent).slice(0, 80),\n        role: el.getAttribute('role') || '',\n      })\n      if (containers.length >= 25) break\n    }\n    return {\n      kind: 'dom-probe',\n      url: safeUrl(),\n      title: cleanText(document.title),\n      dataNames: [...dataNames],\n      inputs,\n      containers,\n    }\n  }\n\n  function heartbeat() {\n    if (Date.now() - lastHeartbeatAt < 20_000) return\n    lastHeartbeatAt = Date.now()\n    console.log('__GUANCLI_HEARTBEAT__' + JSON.stringify({\n      kind: 'heartbeat',\n      href: (() => { try { return location.href } catch (_e) { return '' } })(),\n      pageId: pageId(),\n      readyState: document.readyState,\n      at: Date.now(),\n    }))\n  }\n\n  // #region network recon: capture the BI page's own API calls.\n  // Filter changes on a BI dashboard are re-queried through fetch/XHR; the\n  // request payload carries the exact selector→field→dataset mapping that\n  // neither the (nonexistent) runtime broadcast nor the DOM can provide.\n  // Phase 1 is reconnaissance: report endpoint inventory plus JSON request\n  // bodies so the selector extractor can be written against real payloads.\n\n  /** Per-page capture budgets; recon must never flood the console. */\n  const NET_MAX_COMPACT = 200\n  const NET_MAX_DETAILED = 30\n  /** Card data queries carry the interaction state — always detailed. */\n  const NET_MAX_CARD_DETAILED = 60\n  /** Static assets and telemetry never carry dashboard state. */\n  const NET_SKIP_PATH = /\\.(?:js|css|png|jpe?g|gif|svg|webp|woff2?|map|ico)(?:[?#]|$)|\\/(?:static|vendor|polyfill)\\/|log|track|sentry|monitor|heartbeat/i\n  /** Paths whose JSON bodies are always captured in detail. */\n  const NET_DETAIL_PATH = /query|condition|selector|filter|page|card|data|ds|batch|search|report|chart/i\n  const netState = { seen: new Set(), compact: 0, detailed: 0, cardDetailed: 0 }\n\n  /**\n   * Live selector state learned from card query payloads, keyed by the\n   * source selector control id. Each /api/card/<cdId>/data request repeats\n   * the page's applied filters with exact bindings:\n   *   { name, fdId, dsId, cdId, filterType, sourceCdId, filterValue[] }\n   * so one entry per selector aggregates every bound (dsId, field) pair.\n   */\n  const netSelectors = new Map()\n\n  /** Card data queries repeat the applied page filters in their body. */\n  const NET_CARD_DATA_PATH = /\\/api\\/card\\/[a-z0-9]{24}\\/data$/i\n\n  /**\n   * Fold one card-query body into netSelectors. A filter entry with an\n   * empty filterValue means the selector was cleared for that card.\n   * @returns whether any selector entry changed.\n   */\n  function ingestCardQuery(bodyText) {\n    let parsed\n    try {\n      parsed = JSON.parse(bodyText)\n    } catch (_error) {\n      return false\n    }\n    const filters = parsed && Array.isArray(parsed.filters) ? parsed.filters : null\n    if (filters === null) return false\n    let changed = false\n    for (const filter of filters) {\n      if (filter === null || typeof filter !== 'object') continue\n      const selectorId = String(filter.sourceCdId || '')\n      if (selectorId === '') continue\n      const values = (Array.isArray(filter.filterValue) ? filter.filterValue : [])\n        .map((value) => (value === null || typeof value === 'object' ? JSON.stringify(value) : String(value)))\n        .filter((value) => value !== '')\n        .slice(0, MAX_VALUES)\n      let entry = netSelectors.get(selectorId)\n      if (entry === undefined) {\n        entry = { selectorId, name: '', operator: '', values: [], displayValues: [], targets: [], origin: 'net', applied: false }\n        netSelectors.set(selectorId, entry)\n      }\n      const name = String(filter.name || '')\n      const operator = String(filter.filterType || '')\n      const display = (Array.isArray(filter.displayValue) ? filter.displayValue : [])\n        .map((value) => String(value || ''))\n        .filter((value) => value !== '')\n        .slice(0, MAX_VALUES)\n      if (name !== '' && entry.name !== name) { entry.name = name; changed = true }\n      if (operator !== '' && entry.operator !== operator) { entry.operator = operator; changed = true }\n      if (JSON.stringify(entry.values) !== JSON.stringify(values)) { entry.values = values; changed = true }\n      if (display.length > 0 && JSON.stringify(entry.displayValues) !== JSON.stringify(display)) { entry.displayValues = display; changed = true }\n      const applied = values.length > 0\n      if (entry.applied !== applied) { entry.applied = applied; changed = true }\n      const dsId = String(filter.dsId || '')\n      const fdId = String(filter.fdId || '')\n      if (dsId !== '' && !entry.targets.some((target) => String(target.dsId) === dsId && String(target.fdId) === fdId)) {\n        entry.targets.push({ dsId, name, fdId })\n        changed = true\n      }\n    }\n    return changed\n  }\n\n  function netUrl(rawUrl) {\n    try {\n      return new URL(rawUrl, location.href)\n    } catch (_error) {\n      return null\n    }\n  }\n\n  /**\n   * Report one request: a compact inventory line per unique signature\n   * (GETs included — drill/param endpoints may be GET), plus a detailed\n   * JSON-body dump for query-looking endpoints. Card data queries are\n   * always detailed under their own budget: their body IS the state.\n   */\n  function netCapture(method, rawUrl, body) {\n    const url = netUrl(rawUrl)\n    if (url === null || url.origin !== location.origin) return\n    const path = url.pathname\n    if (NET_SKIP_PATH.test(path)) return\n    const bodyText = typeof body === 'string' ? body : ''\n    const isCardData = NET_CARD_DATA_PATH.test(path)\n    // State ingestion is independent of recon budgets: a card query updates\n    // the live selector map even when its body is not worth reporting.\n    if (isCardData && bodyText.charAt(0) === '{' && ingestCardQuery(bodyText)) {\n      schedule()\n    }\n    const query = url.search ? url.search.slice(0, 200) : ''\n    const key = method + ' ' + path + '?' + query + ' #' + String(bodyText.length) + ':' + bodyText.slice(0, 64)\n    if (netState.seen.has(key)) return\n    netState.seen.add(key)\n    if (netState.compact < NET_MAX_COMPACT) {\n      netState.compact += 1\n      console.log(NET_PROBE_PREFIX + JSON.stringify({\n        kind: 'net-req',\n        method,\n        path,\n        ...(query === '' ? {} : { query }),\n        bodyBytes: bodyText.length,\n        at: Date.now(),\n      }))\n    }\n    if (bodyText === '' || bodyText.charAt(0) !== '{') return\n    if (isCardData) {\n      if (netState.cardDetailed >= NET_MAX_CARD_DETAILED) return\n      netState.cardDetailed += 1\n    } else {\n      if (!NET_DETAIL_PATH.test(path) && netState.detailed >= 5) return\n      if (netState.detailed >= NET_MAX_DETAILED) return\n      netState.detailed += 1\n    }\n    console.log(NET_PROBE_PREFIX + JSON.stringify({\n      kind: 'net-req-body',\n      method,\n      path,\n      body: bodyText.slice(0, 11000),\n      truncated: bodyText.length > 11000,\n      at: Date.now(),\n    }).slice(0, 12000))\n  }\n\n  /** Monkey-patch fetch and XHR; originals are restorable via unhookNetwork. */\n  function hookNetwork() {\n    const w = window\n    if (typeof w.fetch === 'function' && w.fetch.__guancliOriginal === undefined) {\n      const original = w.fetch\n      const hooked = function (input, init) {\n        try {\n          const method = String((init && init.method) || (input && input.method) || 'GET').toUpperCase()\n          const url = typeof input === 'string' ? input : String((input && input.url) || '')\n          if (method !== 'HEAD') netCapture(method, url, init && init.body)\n        } catch (_error) {}\n        return original.apply(this, arguments)\n      }\n      hooked.__guancliOriginal = original\n      w.fetch = hooked\n    }\n    const proto = typeof XMLHttpRequest === 'function' ? XMLHttpRequest.prototype : null\n    if (proto !== null && proto.__guancliOriginal === undefined) {\n      const open = proto.open\n      const send = proto.send\n      proto.open = function (method, url) {\n        this.__guancliReq = { method: String(method || 'GET').toUpperCase(), url: String(url || '') }\n        return open.apply(this, arguments)\n      }\n      proto.send = function (body) {\n        try {\n          const req = this.__guancliReq\n          if (req && req.method !== 'HEAD') {\n            netCapture(req.method, req.url, typeof body === 'string' ? body : '')\n          }\n        } catch (_error) {}\n        return send.apply(this, arguments)\n      }\n      proto.__guancliOriginal = { open, send }\n    }\n  }\n\n  /** Restore the page's original fetch/XHR (probe upgrade or teardown). */\n  function unhookNetwork() {\n    const w = window\n    if (w.fetch && w.fetch.__guancliOriginal !== undefined) w.fetch = w.fetch.__guancliOriginal\n    const proto = typeof XMLHttpRequest === 'function' ? XMLHttpRequest.prototype : null\n    if (proto !== null && proto.__guancliOriginal !== undefined) {\n      proto.open = proto.__guancliOriginal.open\n      proto.send = proto.__guancliOriginal.send\n      delete proto.__guancliOriginal\n    }\n  }\n  // #endregion\n\n  function publish() {\n    const value = snapshot()\n    if (!ID_PATTERN.test(value.pageId)) return\n    const serialized = JSON.stringify(value)\n    if (serialized !== lastPublished) {\n      lastPublished = serialized\n      console.log('__GUANCLI_DASHBOARD_CONTEXT__' + serialized)\n    }\n    if (value.selectorPrecise !== true && Date.now() - lastDomProbeAt > 30_000) {\n      lastDomProbeAt = Date.now()\n      console.log('__GUANCLI_DOM_PROBE__' + JSON.stringify(domProbe()).slice(0, 16 * 1024))\n    }\n  }\n\n  function schedule() {\n    clearTimeout(timer)\n    timer = setTimeout(publish, 600)\n  }\n\n  const onClick = (event) => {\n    const root = event.target?.closest?.(ROOT_SELECTOR)\n    const id = idFrom(root)\n    if (id) focusedCardId = id\n    schedule()\n  }\n  const onDomReady = () => {\n    heartbeat()\n    schedule()\n  }\n  const onMessage = (event) => {\n    if (event.source !== window || event.origin !== location.origin || event.data?.type !== 'GUANDATA_DASHBOARD_CONTEXT') return\n    runtimeContext = event.data.context || null\n    schedule()\n  }\n  document.addEventListener('click', onClick, true)\n  document.addEventListener('change', schedule, true)\n  document.addEventListener('DOMContentLoaded', onDomReady)\n  window.addEventListener('popstate', schedule)\n  window.addEventListener('hashchange', schedule)\n  window.addEventListener('message', onMessage)\n  globalThis.__guancliDashboardProbe = {\n    version: PROBE_VERSION,\n    stop: () => {\n      clearTimeout(timer)\n      document.removeEventListener('click', onClick, true)\n      document.removeEventListener('change', schedule, true)\n      document.removeEventListener('DOMContentLoaded', onDomReady)\n      window.removeEventListener('popstate', schedule)\n      window.removeEventListener('hashchange', schedule)\n      window.removeEventListener('message', onMessage)\n      unhookNetwork()\n    },\n  }\n  hookNetwork()\n  heartbeat()\n  schedule()\n  return 'installed'\n})()";
+    const PROBE_SCRIPT = "(() => {\n  const PROBE_VERSION = '0.6.1'\n  const existing = globalThis.__guancliDashboardProbe\n  if (existing && existing.version === PROBE_VERSION) return 'already-installed'\n  if (existing && typeof existing.stop === 'function') existing.stop()\n\n  const ID_PATTERN = /^[a-z0-9]{24}$/i\n  const ROOT_SELECTOR = '[data-selector-id],[data-cd-id],[data-card-id],[data-component-id]'\n  const MAX_SELECTORS = 30\n  const MAX_VALUES = 50\n  const DOM_PROBE_PREFIX = '__GUANCLI_DOM_PROBE__'\n  const HEARTBEAT_PREFIX = '__GUANCLI_HEARTBEAT__'\n  const NET_PROBE_PREFIX = '__GUANCLI_NET_PROBE__'\n  let focusedCardId = ''\n  let runtimeContext = null\n  let timer = null\n  let lastPublished = ''\n\n  function idFrom(element) {\n    if (!element) return ''\n    for (const name of ['data-selector-id', 'data-cd-id', 'data-card-id', 'data-component-id']) {\n      const value = element.getAttribute?.(name) || ''\n      if (ID_PATTERN.test(value)) return value\n    }\n    return ID_PATTERN.test(element.id || '') ? element.id : ''\n  }\n\n  function pageId() {\n    try {\n      const url = new URL(location.href)\n      for (const key of ['pageId', 'page_id', 'pgId', 'pg_id']) {\n        const value = url.searchParams.get(key) || new URLSearchParams(url.hash.split('?')[1] || '').get(key)\n        if (ID_PATTERN.test(value || '')) return value\n      }\n      const routeMatch = location.href.match(/(?:page|dashboard|analysis)[/=:]([a-z0-9]{24})(?:[/?#&]|$)/i)\n      if (routeMatch) return routeMatch[1]\n      for (const selector of ['[data-page-id]', '[data-pg-id]']) {\n        const node = document.querySelector(selector)\n        const value = node?.getAttribute(selector.includes('page') ? 'data-page-id' : 'data-pg-id') || ''\n        if (ID_PATTERN.test(value)) return value\n      }\n    } catch (_error) {}\n    return ''\n  }\n\n  function cleanText(value) {\n    return String(value || '').replace(/\\s+/g, ' ').trim().slice(0, 500)\n  }\n\n  function selectedValues(root) {\n    const values = []\n    const add = (value) => {\n      const normalized = cleanText(value)\n      if (!normalized || /^(全部|全选|请选择|搜索)$/i.test(normalized) || values.includes(normalized)) return\n      values.push(normalized)\n    }\n    for (const option of root.querySelectorAll('select option:checked')) add(option.value || option.textContent)\n    for (const input of root.querySelectorAll('input[type=\"checkbox\"]:checked,input[type=\"radio\"]:checked')) add(input.value || input.getAttribute('aria-label'))\n    for (const input of root.querySelectorAll('input:not([type=\"checkbox\"]):not([type=\"radio\"])')) if (input.value) add(input.value)\n    for (const node of root.querySelectorAll('[aria-selected=\"true\"],.ant-select-selection-item')) add(node.getAttribute('title') || node.textContent)\n    return values.slice(0, MAX_VALUES)\n  }\n\n  function domSelectors() {\n    const selections = []\n    const seen = new Set()\n    for (const root of document.querySelectorAll(ROOT_SELECTOR)) {\n      const selectorId = idFrom(root)\n      if (!selectorId || seen.has(selectorId)) continue\n      const values = selectedValues(root)\n      if (!values.length) continue\n      seen.add(selectorId)\n      selections.push({ selectorId, values, displayValues: values, operator: values.length > 1 ? 'IN' : 'EQ', origin: 'dom' })\n      if (selections.length >= MAX_SELECTORS) break\n    }\n    return selections\n  }\n\n  /**\n   * Short single-line text usable as a widget label; rejects empty and\n   * over-long strings (titles in this BI build stay well under 40 chars).\n   */\n  function labelText(value) {\n    const text = cleanText(value)\n    return text === '' || text.length > 40 ? '' : text\n  }\n\n  /**\n   * Resolve a canvas selector's display name by walking up from the widget.\n   * Canvas DS_ELEMENTS filters carry no aria-label and no data-* identity,\n   * but their card header holds the selector title (货号/四级类目/评论日期)\n   * in a title/name element, or as the first short text sibling that does\n   * not itself contain a form widget (so a neighbouring selector's value\n   * can never be mistaken for the title).\n   */\n  function cardTitle(box) {\n    let node = box.parentElement\n    for (let depth = 0; node !== null && depth < 6; depth += 1, node = node.parentElement) {\n      for (const el of node.querySelectorAll('[class*=\"title\"],[class*=\"Title\"],[class*=\"name\"],[class*=\"Name\"]')) {\n        if (box.contains(el)) continue\n        const text = labelText(el.getAttribute('title') || el.textContent)\n        if (text !== '') return text\n      }\n      for (const child of node.children) {\n        if (child === box || child.contains(box)) continue\n        if (child.querySelector('input,select,[role=\"combobox\"],.ant-select') !== null) continue\n        const text = labelText(child.textContent)\n        if (text !== '' && !/^自动铺满/u.test(text)) return text\n      }\n    }\n    return ''\n  }\n\n  /**\n   * Wide-pass capture for BI builds whose filter widgets carry no\n   * data-* identity: aggregate selected pills per combobox, plus valued\n   * inputs and checked options. Fingerprinted by container class+label,\n   * origin-tagged 'dom-wide'; noise is accepted over silence — the merge\n   * step whitelists by field name anyway.\n   */\n  function wideSelectors() {\n    const out = []\n    const seen = new Set()\n    // Keep colliding fingerprints as separate widgets instead of dropping\n    // them: identical global-bar and canvas date inputs (same empty\n    // name/id/class, same placeholder) must both survive.\n    const unique = (fingerprint) => {\n      if (!seen.has(fingerprint)) return fingerprint\n      let index = 2\n      while (seen.has(fingerprint + '#' + String(index))) index += 1\n      return fingerprint + '#' + String(index)\n    }\n    const push = (fingerprint, values, extra) => {\n      const cleaned = values.map(cleanText).filter((value) => value !== '')\n      if (cleaned.length === 0 || seen.has(fingerprint)) return\n      const named = extra?.name !== undefined && extra.name !== ''\n      // Unnamed widgets are accepted only when they are unambiguous filter\n      // controls: segmented widgets, or selects carrying this BI build's\n      // selector (SEL_) classes — canvas DS_ELEMENTS cards included. Other\n      // unlabeled widgets are canvas layout controls (e.g. '自动铺满(70%)').\n      if (!named && extra?.widget !== 'segmented' && extra?.selectorClassed !== true) return\n      seen.add(fingerprint)\n      out.push({\n        selectorId: 'wide-' + String(out.length + 1),\n        values: cleaned.slice(0, MAX_VALUES),\n        displayValues: cleaned.slice(0, MAX_VALUES),\n        operator: cleaned.length > 1 ? 'IN' : 'EQ',\n        origin: 'dom-wide',\n        ...extra,\n      })\n    }\n    for (const box of document.querySelectorAll('[role=\"combobox\"],.ant-select,[class*=\"Select\"],[class*=\"selector\"]')) {\n      // Canvas layout chrome (the '自动铺满(70%)' zoom control), not a filter.\n      if (String(box.className || '').includes('scale-selector') || box.closest('.scale-selector') !== null) continue\n      const selectorClassed = box.matches('.SEL_select, [class*=\"SEL_\"]')\n      const items = [...box.querySelectorAll('.ant-select-selection-item,[aria-selected=\"true\"]')]\n      const pills = items\n        .map((el) => cleanText(el.getAttribute('title') || el.textContent))\n        .filter((value) => value !== '' && !/^(全部|全选|请选择|搜索)$/iu.test(value))\n      if (pills.length === 0 && !(items.length > 0 && selectorClassed)) continue\n      // Page filters in this BI build carry SEL_ class tokens; prefer a\n      // label from the nearest filter container, then fall back to the\n      // enclosing card's title (canvas DS_ELEMENTS).\n      const holder = box.closest('[class*=\"SEL_\"],[class*=\"filter\"],[class*=\"Filter\"],[class*=\"selector\"],[data-selector-id]')\n      const label = cleanText(\n        holder?.querySelector('[class*=\"title\"],[class*=\"label\"],label')?.textContent\n        || box.getAttribute('aria-label') || '',\n      ).slice(0, 40) || cardTitle(box)\n      push(unique('box:' + String(box.className || '').slice(0, 60) + ':' + label), pills, {\n        name: label || undefined,\n        selectorClassed,\n        ...(pills.length === 0 ? { applied: false } : {}),\n      })\n    }\n    // Segmented single-select widgets (e.g. LR=可用库存): the selected item\n    // is unambiguous even without a label, so accept unnamed ones — BI uses\n    // segmented almost exclusively for filters/switches, not layout.\n    for (const seg of document.querySelectorAll('.ant-segmented')) {\n      if (String(seg.className || '').includes('scale-selector') || seg.closest('.scale-selector') !== null) continue\n      const selected = seg.querySelector('.ant-segmented-item-selected')\n      const value = cleanText(selected?.textContent || '')\n      if (value === '' || /^(全部|全选|请选择|搜索)$/iu.test(value)) continue\n      const holder = seg.closest('[class*=\"SEL_\"],[class*=\"filter\"],[class*=\"Filter\"]')\n      const label = cleanText(\n        holder?.querySelector('[class*=\"title\"],[class*=\"label\"],label')?.textContent\n        || seg.getAttribute('aria-label') || '',\n      ).slice(0, 40) || cardTitle(seg)\n      push(unique('seg:' + String(seg.className || '').slice(0, 60) + ':' + label), [value], { name: label || undefined, widget: 'segmented' })\n    }\n    for (const input of document.querySelectorAll('input:not([type=\"checkbox\"]):not([type=\"radio\"]):not([type=\"hidden\"])')) {\n      const value = cleanText(input.value)\n      if (value === '') continue\n      const placeholder = cleanText(input.getAttribute('placeholder') || input.getAttribute('aria-label') || input.name || '').slice(0, 40)\n      // Canvas date-range cards (评论日期) reuse the same 开始/结束日期\n      // placeholders as the global bar (发货月); prefix the card title so\n      // the two pairs stay distinguishable after fingerprint dedupe.\n      const title = cardTitle(input)\n      const label = title !== '' && placeholder !== '' && !placeholder.includes(title)\n        ? title + '·' + placeholder\n        : placeholder || title\n      push(unique('input:' + String(input.name || input.id || input.className || '').slice(0, 60) + ':' + label), [value], { name: label || undefined })\n    }\n    for (const select of document.querySelectorAll('select')) {\n      const values = [...select.selectedOptions].map((option) => cleanText(option.value || option.textContent)).filter((value) => value !== '')\n      if (values.length === 0) continue\n      const label = cleanText(select.name || '').slice(0, 40) || cardTitle(select) || undefined\n      push(unique('select:' + String(select.name || select.id || select.className || '').slice(0, 60)), values, { name: label })\n    }\n    return out.slice(0, MAX_SELECTORS)\n  }\n\n  /**\n   * Pick the selector list: network-captured filters win (they carry the\n   * exact selector→field→dataset binding from the BI query payload), then\n   * the runtime broadcast when it actually carries entries, then the\n   * identified-widget DOM pass, then the wide pass. Entries are\n   * origin-tagged. 'precise' is false only when the wide pass carried the\n   * result — that is exactly when a DOM recon report is most needed.\n   */\n  function resolveSelectors() {\n    const net = [...netSelectors.values()].filter((entry) => entry.applied !== false)\n    if (net.length > 0) return { list: net.slice(0, MAX_SELECTORS), precise: true }\n    const runtime = runtimeContext && typeof runtimeContext === 'object' ? runtimeContext : {}\n    if (Array.isArray(runtime.selectors) && runtime.selectors.length > 0) {\n      return { list: runtime.selectors.slice(0, MAX_SELECTORS).map((selector) => ({ origin: 'runtime', ...selector })), precise: true }\n    }\n    const dom = domSelectors()\n    if (dom.length > 0) return { list: dom, precise: true }\n    return { list: wideSelectors(), precise: false }\n  }\n\n  function safeUrl() {\n    try {\n      const url = new URL(location.href)\n      const hashPath = url.hash ? url.hash.split('?')[0] : ''\n      return url.origin + url.pathname + hashPath\n    } catch (_error) {\n      return location.href\n    }\n  }\n\n  function snapshot() {\n    const runtime = runtimeContext && typeof runtimeContext === 'object' ? runtimeContext : {}\n    const currentPageId = String(runtime.pageId || pageId())\n    const resolved = resolveSelectors()\n    return {\n      pageId: currentPageId,\n      pageName: cleanText(runtime.pageName || document.querySelector('[data-page-name],h1')?.textContent || document.title),\n      url: safeUrl(),\n      selectors: resolved.list,\n      selectorPrecise: resolved.precise,\n      focusedCardId: String(runtime.focusedCardId || focusedCardId || ''),\n      capturedAt: Date.now(),\n    }\n  }\n\n  /** Last DOM recon emission, throttled to one per 30 seconds. */\n  let lastDomProbeAt = 0\n  /** Last heartbeat emission, throttled to one per 20 seconds. */\n  let lastHeartbeatAt = 0\n\n  /**\n   * Recon pass over unknown BI DOM: input/select inventory, data-* attribute\n   * names, and candidate listbox/filter containers. Sent only while the\n   * selector list stays empty so the plugin author can adapt the real DOM.\n   */\n  function domProbe() {\n    const inputs = []\n    for (const el of document.querySelectorAll('input, select, textarea')) {\n      inputs.push({\n        tag: el.tagName.toLowerCase(),\n        type: el.type || '',\n        name: el.getAttribute('name') || '',\n        placeholder: (el.getAttribute('placeholder') || '').slice(0, 60),\n        value: String(el.value ?? '').slice(0, 60),\n        cls: String(el.className || '').slice(0, 80),\n        label: String(el.getAttribute('aria-label') || (el.closest('label')?.textContent || '')).slice(0, 60),\n        data: Object.keys(el.dataset || {}).slice(0, 8),\n      })\n      if (inputs.length >= 40) break\n    }\n    const dataNames = new Set()\n    for (const el of document.querySelectorAll('[data-selector-id],[data-cd-id],[data-card-id],[data-component-id],[data-page-id]')) {\n      for (const attr of el.attributes) if (attr.name.startsWith('data-')) dataNames.add(attr.name)\n    }\n    const containers = []\n    for (const el of document.querySelectorAll('[role=\"listbox\"],[role=\"combobox\"],[class*=\"select\"],[class*=\"selector\"],[class*=\"filter\"]')) {\n      containers.push({\n        cls: String(el.className || '').slice(0, 80),\n        text: cleanText(el.textContent).slice(0, 80),\n        role: el.getAttribute('role') || '',\n      })\n      if (containers.length >= 25) break\n    }\n    return {\n      kind: 'dom-probe',\n      url: safeUrl(),\n      title: cleanText(document.title),\n      dataNames: [...dataNames],\n      inputs,\n      containers,\n    }\n  }\n\n  function heartbeat() {\n    if (Date.now() - lastHeartbeatAt < 20_000) return\n    lastHeartbeatAt = Date.now()\n    console.log('__GUANCLI_HEARTBEAT__' + JSON.stringify({\n      kind: 'heartbeat',\n      href: (() => { try { return location.href } catch (_e) { return '' } })(),\n      pageId: pageId(),\n      readyState: document.readyState,\n      at: Date.now(),\n    }))\n  }\n\n  // #region network recon: capture the BI page's own API calls.\n  // Filter changes on a BI dashboard are re-queried through fetch/XHR; the\n  // request payload carries the exact selector→field→dataset mapping that\n  // neither the (nonexistent) runtime broadcast nor the DOM can provide.\n  // Phase 1 is reconnaissance: report endpoint inventory plus JSON request\n  // bodies so the selector extractor can be written against real payloads.\n\n  /** Per-page capture budgets; recon must never flood the console. */\n  const NET_MAX_COMPACT = 200\n  const NET_MAX_DETAILED = 30\n  /** Card data queries carry the interaction state — always detailed. */\n  const NET_MAX_CARD_DETAILED = 60\n  /** Static assets and telemetry never carry dashboard state. */\n  const NET_SKIP_PATH = /\\.(?:js|css|png|jpe?g|gif|svg|webp|woff2?|map|ico)(?:[?#]|$)|\\/(?:static|vendor|polyfill)\\/|log|track|sentry|monitor|heartbeat/i\n  /** Paths whose JSON bodies are always captured in detail. */\n  const NET_DETAIL_PATH = /query|condition|selector|filter|page|card|data|ds|batch|search|report|chart/i\n  const netState = { seen: new Set(), compact: 0, detailed: 0, cardDetailed: 0 }\n\n  /**\n   * Live selector state learned from card query payloads, keyed by the\n   * source selector control id. Each /api/card/<cdId>/data request repeats\n   * the page's applied filters with exact bindings:\n   *   { name, fdId, dsId, cdId, filterType, sourceCdId, filterValue[] }\n   * so one entry per selector aggregates every bound (dsId, field) pair.\n   */\n  const netSelectors = new Map()\n\n  /** Card data queries repeat the applied page filters in their body. */\n  const NET_CARD_DATA_PATH = /\\/api\\/card\\/[a-z0-9]{24}\\/data$/i\n\n  /**\n   * Fold one card-query body into netSelectors. A filter entry with an\n   * empty filterValue means the selector was cleared for that card.\n   * @returns whether any selector entry changed.\n   */\n  function ingestCardQuery(bodyText) {\n    let parsed\n    try {\n      parsed = JSON.parse(bodyText)\n    } catch (_error) {\n      return false\n    }\n    const filters = parsed && Array.isArray(parsed.filters) ? parsed.filters : null\n    if (filters === null) return false\n    let changed = false\n    for (const filter of filters) {\n      if (filter === null || typeof filter !== 'object') continue\n      const selectorId = String(filter.sourceCdId || '')\n      if (selectorId === '') continue\n      const values = (Array.isArray(filter.filterValue) ? filter.filterValue : [])\n        .map((value) => (value === null || typeof value === 'object' ? JSON.stringify(value) : String(value)))\n        .filter((value) => value !== '')\n        .slice(0, MAX_VALUES)\n      let entry = netSelectors.get(selectorId)\n      if (entry === undefined) {\n        entry = { selectorId, name: '', operator: '', values: [], displayValues: [], targets: [], origin: 'net', applied: false }\n        netSelectors.set(selectorId, entry)\n      }\n      const name = String(filter.name || '')\n      const operator = String(filter.filterType || '')\n      const display = (Array.isArray(filter.displayValue) ? filter.displayValue : [])\n        .map((value) => String(value || ''))\n        .filter((value) => value !== '')\n        .slice(0, MAX_VALUES)\n      if (name !== '' && entry.name !== name) { entry.name = name; changed = true }\n      if (operator !== '' && entry.operator !== operator) { entry.operator = operator; changed = true }\n      if (JSON.stringify(entry.values) !== JSON.stringify(values)) { entry.values = values; changed = true }\n      if (display.length > 0 && JSON.stringify(entry.displayValues) !== JSON.stringify(display)) { entry.displayValues = display; changed = true }\n      const applied = values.length > 0\n      if (entry.applied !== applied) { entry.applied = applied; changed = true }\n      const dsId = String(filter.dsId || '')\n      const fdId = String(filter.fdId || '')\n      if (dsId !== '' && !entry.targets.some((target) => String(target.dsId) === dsId && String(target.fdId) === fdId)) {\n        entry.targets.push({ dsId, name, fdId })\n        changed = true\n      }\n    }\n    return changed\n  }\n\n  function netUrl(rawUrl) {\n    try {\n      return new URL(rawUrl, location.href)\n    } catch (_error) {\n      return null\n    }\n  }\n\n  /**\n   * Report one request: a compact inventory line per unique signature\n   * (GETs included — drill/param endpoints may be GET), plus a detailed\n   * JSON-body dump for query-looking endpoints. Card data queries are\n   * always detailed under their own budget: their body IS the state.\n   */\n  function netCapture(method, rawUrl, body) {\n    const url = netUrl(rawUrl)\n    if (url === null || url.origin !== location.origin) return\n    const path = url.pathname\n    if (NET_SKIP_PATH.test(path)) return\n    const bodyText = typeof body === 'string' ? body : ''\n    const isCardData = NET_CARD_DATA_PATH.test(path)\n    // State ingestion is independent of recon budgets: a card query updates\n    // the live selector map even when its body is not worth reporting.\n    if (isCardData && bodyText.charAt(0) === '{' && ingestCardQuery(bodyText)) {\n      schedule()\n    }\n    const query = url.search ? url.search.slice(0, 200) : ''\n    const key = method + ' ' + path + '?' + query + ' #' + String(bodyText.length) + ':' + bodyText.slice(0, 64)\n    if (netState.seen.has(key)) return\n    netState.seen.add(key)\n    if (netState.compact < NET_MAX_COMPACT) {\n      netState.compact += 1\n      console.log(NET_PROBE_PREFIX + JSON.stringify({\n        kind: 'net-req',\n        method,\n        path,\n        ...(query === '' ? {} : { query }),\n        bodyBytes: bodyText.length,\n        at: Date.now(),\n      }))\n    }\n    if (bodyText === '' || bodyText.charAt(0) !== '{') return\n    if (isCardData) {\n      if (netState.cardDetailed >= NET_MAX_CARD_DETAILED) return\n      netState.cardDetailed += 1\n    } else {\n      if (!NET_DETAIL_PATH.test(path) && netState.detailed >= 5) return\n      if (netState.detailed >= NET_MAX_DETAILED) return\n      netState.detailed += 1\n    }\n    console.log(NET_PROBE_PREFIX + JSON.stringify({\n      kind: 'net-req-body',\n      method,\n      path,\n      body: bodyText.slice(0, 11000),\n      truncated: bodyText.length > 11000,\n      at: Date.now(),\n    }).slice(0, 12000))\n  }\n\n  /** Monkey-patch fetch and XHR; originals are restorable via unhookNetwork. */\n  function hookNetwork() {\n    const w = window\n    if (typeof w.fetch === 'function' && w.fetch.__guancliOriginal === undefined) {\n      const original = w.fetch\n      const hooked = function (input, init) {\n        try {\n          const method = String((init && init.method) || (input && input.method) || 'GET').toUpperCase()\n          const url = typeof input === 'string' ? input : String((input && input.url) || '')\n          if (method !== 'HEAD') netCapture(method, url, init && init.body)\n        } catch (_error) {}\n        return original.apply(this, arguments)\n      }\n      hooked.__guancliOriginal = original\n      w.fetch = hooked\n    }\n    const proto = typeof XMLHttpRequest === 'function' ? XMLHttpRequest.prototype : null\n    if (proto !== null && proto.__guancliOriginal === undefined) {\n      const open = proto.open\n      const send = proto.send\n      proto.open = function (method, url) {\n        this.__guancliReq = { method: String(method || 'GET').toUpperCase(), url: String(url || '') }\n        return open.apply(this, arguments)\n      }\n      proto.send = function (body) {\n        try {\n          const req = this.__guancliReq\n          if (req && req.method !== 'HEAD') {\n            netCapture(req.method, req.url, typeof body === 'string' ? body : '')\n          }\n        } catch (_error) {}\n        return send.apply(this, arguments)\n      }\n      proto.__guancliOriginal = { open, send }\n    }\n  }\n\n  /** Restore the page's original fetch/XHR (probe upgrade or teardown). */\n  function unhookNetwork() {\n    const w = window\n    if (w.fetch && w.fetch.__guancliOriginal !== undefined) w.fetch = w.fetch.__guancliOriginal\n    const proto = typeof XMLHttpRequest === 'function' ? XMLHttpRequest.prototype : null\n    if (proto !== null && proto.__guancliOriginal !== undefined) {\n      proto.open = proto.__guancliOriginal.open\n      proto.send = proto.__guancliOriginal.send\n      delete proto.__guancliOriginal\n    }\n  }\n  // #endregion\n\n  function publish() {\n    const value = snapshot()\n    if (!ID_PATTERN.test(value.pageId)) return\n    const serialized = JSON.stringify(value)\n    if (serialized !== lastPublished) {\n      lastPublished = serialized\n      console.log('__GUANCLI_DASHBOARD_CONTEXT__' + serialized)\n    }\n    if (value.selectorPrecise !== true && Date.now() - lastDomProbeAt > 30_000) {\n      lastDomProbeAt = Date.now()\n      console.log('__GUANCLI_DOM_PROBE__' + JSON.stringify(domProbe()).slice(0, 16 * 1024))\n    }\n  }\n\n  function schedule() {\n    clearTimeout(timer)\n    timer = setTimeout(publish, 600)\n  }\n\n  const onClick = (event) => {\n    const root = event.target?.closest?.(ROOT_SELECTOR)\n    const id = idFrom(root)\n    if (id) focusedCardId = id\n    // Always re-publish after clicks: canvas DS_ELEMENTS selectors carry no\n    // data-* identity, so the focused-card check above never matches them,\n    // and ant-select applies the new value without a native change event.\n    schedule()\n  }\n  const onDomReady = () => {\n    heartbeat()\n    schedule()\n  }\n  const onMessage = (event) => {\n    if (event.source !== window || event.origin !== location.origin || event.data?.type !== 'GUANDATA_DASHBOARD_CONTEXT') return\n    runtimeContext = event.data.context || null\n    schedule()\n  }\n  // Selection changes in canvas filter widgets only mutate the DOM (no\n  // change event, no click on an identified element). A debounced subtree\n  // observer turns those mutations into one republish; publish() diffs the\n  // serialized snapshot, so unrelated re-renders cost nothing.\n  const observer = new MutationObserver(() => schedule())\n  observer.observe(document.documentElement, { subtree: true, childList: true, characterData: true })\n  document.addEventListener('click', onClick, true)\n  document.addEventListener('change', schedule, true)\n  document.addEventListener('DOMContentLoaded', onDomReady)\n  window.addEventListener('popstate', schedule)\n  window.addEventListener('hashchange', schedule)\n  window.addEventListener('message', onMessage)\n  globalThis.__guancliDashboardProbe = {\n    version: PROBE_VERSION,\n    stop: () => {\n      clearTimeout(timer)\n      observer.disconnect()\n      document.removeEventListener('click', onClick, true)\n      document.removeEventListener('change', schedule, true)\n      document.removeEventListener('DOMContentLoaded', onDomReady)\n      window.removeEventListener('popstate', schedule)\n      window.removeEventListener('hashchange', schedule)\n      window.removeEventListener('message', onMessage)\n      unhookNetwork()\n    },\n  }\n  hookNetwork()\n  heartbeat()\n  schedule()\n  return 'installed'\n})()";
 // __PROBE_SCRIPT_INLINED__
+
+    /** Inlined ask widget (generated from src/ask-widget.js — do not edit by hand; run scripts/sync-ask.mjs). */
+    const ASK_SCRIPT = "(() => {\n  const ASK_VERSION = '0.6.1'\n  const existing = globalThis.__guancliAskWidget\n  if (existing && existing.version === ASK_VERSION) return 'already-installed'\n  if (existing && typeof existing.stop === 'function') existing.stop()\n\n  const ASK_PREFIX = '__GUANCLI_PAGE_ASK__'\n  const STYLE = {\n    bubble: 'position:fixed;right:16px;bottom:16px;z-index:2147483647;display:flex;align-items:center;gap:6px;padding:8px 14px;border:none;border-radius:20px;background:#0F6FE0;color:#fff;font:13px/1.4 -apple-system,\"PingFang SC\",\"Microsoft YaHei\",sans-serif;box-shadow:0 4px 16px rgba(15,111,224,.35);cursor:pointer;',\n    panel: 'position:fixed;right:16px;bottom:60px;z-index:2147483647;width:320px;display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:12px;background:#fff;box-shadow:0 8px 32px rgba(0,0,0,.18);font:13px/1.5 -apple-system,\"PingFang SC\",\"Microsoft YaHei\",sans-serif;color:#1f2329;',\n    title: 'display:flex;justify-content:space-between;align-items:center;font-weight:600;font-size:13px;',\n    close: 'border:none;background:none;cursor:pointer;font-size:14px;color:#646a73;padding:0 4px;',\n    area: 'width:100%;min-height:72px;max-height:160px;resize:vertical;padding:8px;border:1px solid #dee0e3;border-radius:8px;font:13px/1.5 inherit;box-sizing:border-box;outline:none;',\n    row: 'display:flex;justify-content:space-between;align-items:center;gap:8px;',\n    status: 'flex:1;font-size:12px;color:#646a73;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;',\n    send: 'border:none;border-radius:8px;padding:6px 16px;background:#0F6FE0;color:#fff;font-size:13px;cursor:pointer;',\n  }\n\n  let container = null\n  let panel = null\n  let textarea = null\n  let status = null\n\n  function el(tag, style, text) {\n    const node = document.createElement(tag)\n    node.setAttribute('style', style)\n    if (text !== undefined) node.textContent = text\n    return node\n  }\n\n  /** Ack channel: the plugin Client calls this after delivery. */\n  globalThis.__guancliAskAck = (result) => {\n    if (status === null) return\n    if (result && result.ok === true) {\n      status.textContent = '已发送到主会话，回答请查看 DSH 对话区'\n      if (textarea !== null) textarea.value = ''\n    } else {\n      status.textContent = '发送失败：' + String((result && result.error) || '插件未响应')\n    }\n  }\n\n  function send() {\n    const text = String(textarea?.value ?? '').trim()\n    if (text === '') {\n      status.textContent = '先输入问题'\n      return\n    }\n    console.log(ASK_PREFIX + JSON.stringify({ text, url: location.href, at: Date.now() }))\n    status.textContent = '发送中…'\n  }\n\n  function toggle(show) {\n    if (panel !== null) panel.style.display = show ? 'flex' : 'none'\n    if (show && textarea !== null) textarea.focus()\n  }\n\n  function install() {\n    container = document.createElement('div')\n    container.id = 'guancli-ask-widget'\n\n    const bubble = el('button', STYLE.bubble, '💬 问 Agent')\n    bubble.type = 'button'\n    bubble.addEventListener('click', () => toggle(panel === null || panel.style.display === 'none'))\n\n    panel = el('div', STYLE.panel)\n    panel.style.display = 'none'\n    const title = el('div', STYLE.title)\n    title.appendChild(el('span', '', '向 Agent 提问'))\n    const close = el('button', STYLE.close, '✕')\n    close.type = 'button'\n    close.setAttribute('aria-label', '关闭')\n    close.addEventListener('click', () => toggle(false))\n    title.appendChild(close)\n\n    textarea = el('textarea', STYLE.area)\n    textarea.placeholder = '针对当前看板提问…（Enter 发送，Shift+Enter 换行）'\n    textarea.addEventListener('keydown', (event) => {\n      if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {\n        event.preventDefault()\n        send()\n      }\n    })\n\n    const row = el('div', STYLE.row)\n    status = el('span', STYLE.status, '问题会附带当前看板上下文')\n    const button = el('button', STYLE.send, '发送')\n    button.type = 'button'\n    button.addEventListener('click', send)\n    row.appendChild(status)\n    row.appendChild(button)\n\n    panel.appendChild(title)\n    panel.appendChild(textarea)\n    panel.appendChild(row)\n    container.appendChild(bubble)\n    container.appendChild(panel)\n    ;(document.body || document.documentElement).appendChild(container)\n  }\n\n  install()\n  globalThis.__guancliAskWidget = {\n    version: ASK_VERSION,\n    stop: () => {\n      container?.remove()\n      container = null\n      panel = null\n      textarea = null\n      status = null\n      delete globalThis.__guancliAskAck\n    },\n  }\n  return 'installed'\n})()";
+// __ASK_SCRIPT_INLINED__
 
     /**
      * Watch the sidebar webview: inject the dashboard probe into Guandata BI
      * pages and forward captured contexts to the Host. All failures are
      * swallowed — the watcher must never break the page.
      * @param ctx - client root context.
+     * @param options - `{ onAsk }` delivery callback for page questions.
      */
-    function startDashboardProbe(ctx) {
+    function startDashboardProbe(ctx, options = {}) {
       let probeScript = ''
       let environments = []
+      let defaultProfile = null
       let environmentsAt = 0
       let setupPromise = null
       let lastPublished = ''
+      let lastContext = null
       const attached = new WeakSet()
 
       /** Fetch authenticated environments once, cached. The probe script
@@ -602,6 +620,7 @@ window.__ModuleLoader__.load({
               const envResult = await rpc('environments', {})
               if (Array.isArray(envResult.data?.environments)) {
                 environments = envResult.data.environments.filter((entry) => typeof entry?.url === 'string' && entry.url !== '')
+                defaultProfile = typeof envResult.data.defaultProfile === 'string' ? envResult.data.defaultProfile : null
                 environmentsAt = Date.now()
               }
             }
@@ -629,6 +648,7 @@ window.__ModuleLoader__.load({
         const serialized = JSON.stringify(context)
         if (serialized === lastPublished) return
         lastPublished = serialized
+        lastContext = context
         try {
           await rpc('context.publish', { context })
         } catch (error) {
@@ -656,12 +676,34 @@ window.__ModuleLoader__.load({
         if (netFlushTimer === null) netFlushTimer = setTimeout(flushNetReports, 3000)
       }
 
-      /** Parse one console line and forward probe output or recon reports. */
-      function onConsoleMessage(event) {
+      /** Report the ask-widget delivery outcome back into the page. */
+      async function ackAsk(webview, result) {
+        try {
+          await webview.executeJavaScript(
+            'globalThis.__guancliAskAck && globalThis.__guancliAskAck(' + JSON.stringify(result) + ')',
+          )
+        } catch (_error) {
+          // Ack is best-effort; the question was already delivered.
+        }
+      }
+
+      /** Parse one console line and forward probe output, recon, or questions. */
+      function onConsoleMessage(webview, event) {
         const text = String(event?.message ?? '')
         const context = parseProbeOutputText(text)
         if (context !== null) {
           publish(context)
+          return
+        }
+        const ask = parseAskOutputText(text)
+        if (ask !== null) {
+          if (typeof options.onAsk === 'function') {
+            Promise.resolve(options.onAsk(ask, { context: lastContext, environments, defaultProfile }))
+              .then((result) => ackAsk(webview, result ?? { ok: true }))
+              .catch((error) => ackAsk(webview, { ok: false, error: String(error?.message ?? error).slice(0, 200) }))
+          } else {
+            ackAsk(webview, { ok: false, error: '提问通道未启用' })
+          }
           return
         }
         if (text.startsWith(HEARTBEAT_PREFIX)) {
@@ -691,7 +733,7 @@ window.__ModuleLoader__.load({
         }
       }
 
-      /** Best-effort probe (re-)injection; the script self-guards duplicates. */
+      /** Best-effort probe + widget (re-)injection; both self-guard duplicates. */
       async function inject(webview) {
         if (probeScript === '') return
         try {
@@ -699,6 +741,14 @@ window.__ModuleLoader__.load({
         } catch (error) {
           probeState.injectErrors.push(String(error?.message ?? error).slice(0, 200))
           if (probeState.injectErrors.length > 5) probeState.injectErrors.shift()
+        }
+        if (ASK_SCRIPT !== '') {
+          try {
+            await webview.executeJavaScript(ASK_SCRIPT)
+          } catch (error) {
+            probeState.injectErrors.push('ask: ' + String(error?.message ?? error).slice(0, 180))
+            if (probeState.injectErrors.length > 5) probeState.injectErrors.shift()
+          }
         }
       }
 
@@ -732,7 +782,7 @@ window.__ModuleLoader__.load({
       async function attach(webview) {
         if (attached.has(webview)) return
         attached.add(webview)
-        webview.addEventListener('console-message', onConsoleMessage)
+        webview.addEventListener('console-message', (event) => onConsoleMessage(webview, event))
         webview.addEventListener('did-navigate', () => { inject(webview) })
         webview.addEventListener('did-navigate-in-page', () => { inject(webview) })
         webview.addEventListener('dom-ready', () => { inject(webview) })
@@ -791,7 +841,7 @@ window.__ModuleLoader__.load({
     }
 
     return {
-      inject: ['locale'],
+      inject: ['locale', 'remote', 'remote.session'],
       apply(ctx) {
         ctx.effect(
           () => ctx.locale.register(NS, { zh, en, ja, es, fr, de, ru, pt }),
@@ -842,7 +892,82 @@ window.__ModuleLoader__.load({
           )
         })
 
-        ctx.effect(() => startDashboardProbe(ctx), 'guancli-mentions: dashboard probe')
+        // #region page ask: capture the live session, deliver page questions.
+
+        /**
+         * Invisible ambient entry below the composer: it only stashes the
+         * session-scoped props the slot system hands every occupant, so the
+         * ask widget can target the conversation the user is looking at.
+         */
+        function SessionCapture(props) {
+          React.useEffect(() => {
+            sessionCapture.sessionId = typeof props?.sessionId === 'string' ? props.sessionId : ''
+          })
+          return null
+        }
+
+        ctx.inject(['slots'], (scope) => {
+          scope.effect(
+            () => scope.slots.inject('conversation.composer.dock', () => scope.slots.register({
+              name: 'conversation.composer.dock',
+              id: 'guancli-ask-session',
+              order: 90,
+              label: 'guancli ask session capture',
+            }, SessionCapture)),
+            'guancli-mentions: ask session capture',
+          )
+        })
+
+        /**
+         * Build the prompt text: the question plus the dashboard pointer that
+         * turns it into a first-class mention (the Host pre-step then injects
+         * the asset definition and the live dashboard snapshot by itself).
+         */
+        function buildAskText(ask, context, env) {
+          const lines = [ask.text, '']
+          if (context !== null && /^[a-z0-9]{24}$/iu.test(context.pageId) && env !== null) {
+            const label = sanitizeLabel(context.pageName) || context.pageId
+            lines.push(
+              `（上下文：我正在侧边栏浏览器查看看板 @[${label}](dsh-guancli:page:${env}:${context.pageId})，`
+              + '请结合当前看板状态回答；需要取数时使用 guancli 工具。）',
+            )
+          } else {
+            lines.push(`（上下文：我正在侧边栏浏览器查看 ${ask.url}，请结合当前看板状态回答。）`)
+          }
+          return lines.join('\n')
+        }
+
+        /**
+         * Deliver one page question to the current session through the same
+         * remote prompt pipeline the composer uses.
+         * @returns the ack result for the in-page widget.
+         */
+        async function deliverAsk(ask, { context, environments, defaultProfile }) {
+          const sessionId = sessionCapture.sessionId
+          if (sessionId === '') return { ok: false, error: '未找到当前会话，请先在对话区发一条消息' }
+          const remote = ctx.remote
+          const session = remote && typeof remote === 'object' ? remote.session : undefined
+          if (session === undefined || typeof session.prompt !== 'function') {
+            return { ok: false, error: '当前 DSH 版本不支持会话接口' }
+          }
+          const env = matchEnvironmentName(ask.url, environments, sessionCapture.environment || defaultProfile)
+          const requestId = 'pageask-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8)
+          await session.prompt({
+            requestId,
+            sessionId,
+            mode: 'queue',
+            content: [{ type: 'text', text: buildAskText(ask, context ?? null, env) }],
+            clientTimeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          })
+          return { ok: true }
+        }
+
+        ctx.effect(
+          () => startDashboardProbe(ctx, { onAsk: deliverAsk }),
+          'guancli-mentions: dashboard probe',
+        )
+
+        // #endregion
       },
     }
   },

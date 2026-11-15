@@ -119,6 +119,41 @@ export function buildProbeScript() {
   }
 
   /**
+   * Short single-line text usable as a widget label; rejects empty and
+   * over-long strings (titles in this BI build stay well under 40 chars).
+   */
+  function labelText(value) {
+    const text = cleanText(value)
+    return text === '' || text.length > 40 ? '' : text
+  }
+
+  /**
+   * Resolve a canvas selector's display name by walking up from the widget.
+   * Canvas DS_ELEMENTS filters carry no aria-label and no data-* identity,
+   * but their card header holds the selector title (货号/四级类目/评论日期)
+   * in a title/name element, or as the first short text sibling that does
+   * not itself contain a form widget (so a neighbouring selector's value
+   * can never be mistaken for the title).
+   */
+  function cardTitle(box) {
+    let node = box.parentElement
+    for (let depth = 0; node !== null && depth < 6; depth += 1, node = node.parentElement) {
+      for (const el of node.querySelectorAll('[class*="title"],[class*="Title"],[class*="name"],[class*="Name"]')) {
+        if (box.contains(el)) continue
+        const text = labelText(el.getAttribute('title') || el.textContent)
+        if (text !== '') return text
+      }
+      for (const child of node.children) {
+        if (child === box || child.contains(box)) continue
+        if (child.querySelector('input,select,[role="combobox"],.ant-select') !== null) continue
+        const text = labelText(child.textContent)
+        if (text !== '' && !/^自动铺满/u.test(text)) return text
+      }
+    }
+    return ''
+  }
+
+  /**
    * Wide-pass capture for BI builds whose filter widgets carry no
    * data-* identity: aggregate selected pills per combobox, plus valued
    * inputs and checked options. Fingerprinted by container class+label,
@@ -128,13 +163,24 @@ export function buildProbeScript() {
   function wideSelectors() {
     const out = []
     const seen = new Set()
+    // Keep colliding fingerprints as separate widgets instead of dropping
+    // them: identical global-bar and canvas date inputs (same empty
+    // name/id/class, same placeholder) must both survive.
+    const unique = (fingerprint) => {
+      if (!seen.has(fingerprint)) return fingerprint
+      let index = 2
+      while (seen.has(fingerprint + '#' + String(index))) index += 1
+      return fingerprint + '#' + String(index)
+    }
     const push = (fingerprint, values, extra) => {
       const cleaned = values.map(cleanText).filter((value) => value !== '')
-      // Unlabeled widgets are canvas layout controls (e.g. '自动铺满(70%)'),
-      // not filters — drop them; labeled ones are real selectors. Segmented
-      // widgets pass unnamed: their selected state is unambiguous.
       if (cleaned.length === 0 || seen.has(fingerprint)) return
-      if ((extra?.name === undefined || extra.name === '') && extra?.widget !== 'segmented') return
+      const named = extra?.name !== undefined && extra.name !== ''
+      // Unnamed widgets are accepted only when they are unambiguous filter
+      // controls: segmented widgets, or selects carrying this BI build's
+      // selector (SEL_) classes — canvas DS_ELEMENTS cards included. Other
+      // unlabeled widgets are canvas layout controls (e.g. '自动铺满(70%)').
+      if (!named && extra?.widget !== 'segmented' && extra?.selectorClassed !== true) return
       seen.add(fingerprint)
       out.push({
         selectorId: 'wide-' + String(out.length + 1),
@@ -148,20 +194,23 @@ export function buildProbeScript() {
     for (const box of document.querySelectorAll('[role="combobox"],.ant-select,[class*="Select"],[class*="selector"]')) {
       // Canvas layout chrome (the '自动铺满(70%)' zoom control), not a filter.
       if (String(box.className || '').includes('scale-selector') || box.closest('.scale-selector') !== null) continue
+      const selectorClassed = box.matches('.SEL_select, [class*="SEL_"]')
       const items = [...box.querySelectorAll('.ant-select-selection-item,[aria-selected="true"]')]
       const pills = items
         .map((el) => cleanText(el.getAttribute('title') || el.textContent))
         .filter((value) => value !== '' && !/^(全部|全选|请选择|搜索)$/iu.test(value))
-      if (pills.length === 0 && !(items.length > 0 && box.matches('.SEL_select, [class*="SEL_"]'))) continue
+      if (pills.length === 0 && !(items.length > 0 && selectorClassed)) continue
       // Page filters in this BI build carry SEL_ class tokens; prefer a
-      // label from the nearest filter container over generic text.
+      // label from the nearest filter container, then fall back to the
+      // enclosing card's title (canvas DS_ELEMENTS).
       const holder = box.closest('[class*="SEL_"],[class*="filter"],[class*="Filter"],[class*="selector"],[data-selector-id]')
       const label = cleanText(
         holder?.querySelector('[class*="title"],[class*="label"],label')?.textContent
         || box.getAttribute('aria-label') || '',
-      ).slice(0, 40)
-      push('box:' + String(box.className || '').slice(0, 60) + ':' + label, pills, {
+      ).slice(0, 40) || cardTitle(box)
+      push(unique('box:' + String(box.className || '').slice(0, 60) + ':' + label), pills, {
         name: label || undefined,
+        selectorClassed,
         ...(pills.length === 0 ? { applied: false } : {}),
       })
     }
@@ -177,19 +226,27 @@ export function buildProbeScript() {
       const label = cleanText(
         holder?.querySelector('[class*="title"],[class*="label"],label')?.textContent
         || seg.getAttribute('aria-label') || '',
-      ).slice(0, 40)
-      push('seg:' + String(seg.className || '').slice(0, 60) + ':' + label, [value], { name: label || undefined, widget: 'segmented' })
+      ).slice(0, 40) || cardTitle(seg)
+      push(unique('seg:' + String(seg.className || '').slice(0, 60) + ':' + label), [value], { name: label || undefined, widget: 'segmented' })
     }
     for (const input of document.querySelectorAll('input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"])')) {
       const value = cleanText(input.value)
       if (value === '') continue
-      const label = cleanText(input.getAttribute('placeholder') || input.getAttribute('aria-label') || input.name || '').slice(0, 40)
-      push('input:' + String(input.name || input.id || input.className || '').slice(0, 60) + ':' + label, [value], { name: label || undefined })
+      const placeholder = cleanText(input.getAttribute('placeholder') || input.getAttribute('aria-label') || input.name || '').slice(0, 40)
+      // Canvas date-range cards (评论日期) reuse the same 开始/结束日期
+      // placeholders as the global bar (发货月); prefix the card title so
+      // the two pairs stay distinguishable after fingerprint dedupe.
+      const title = cardTitle(input)
+      const label = title !== '' && placeholder !== '' && !placeholder.includes(title)
+        ? title + '·' + placeholder
+        : placeholder || title
+      push(unique('input:' + String(input.name || input.id || input.className || '').slice(0, 60) + ':' + label), [value], { name: label || undefined })
     }
     for (const select of document.querySelectorAll('select')) {
       const values = [...select.selectedOptions].map((option) => cleanText(option.value || option.textContent)).filter((value) => value !== '')
       if (values.length === 0) continue
-      push('select:' + String(select.name || select.id || '').slice(0, 60), values, { name: cleanText(select.name || '').slice(0, 40) || undefined })
+      const label = cleanText(select.name || '').slice(0, 40) || cardTitle(select) || undefined
+      push(unique('select:' + String(select.name || select.id || select.className || '').slice(0, 60)), values, { name: label })
     }
     return out.slice(0, MAX_SELECTORS)
   }
@@ -512,6 +569,9 @@ export function buildProbeScript() {
     const root = event.target?.closest?.(ROOT_SELECTOR)
     const id = idFrom(root)
     if (id) focusedCardId = id
+    // Always re-publish after clicks: canvas DS_ELEMENTS selectors carry no
+    // data-* identity, so the focused-card check above never matches them,
+    // and ant-select applies the new value without a native change event.
     schedule()
   }
   const onDomReady = () => {
@@ -523,6 +583,12 @@ export function buildProbeScript() {
     runtimeContext = event.data.context || null
     schedule()
   }
+  // Selection changes in canvas filter widgets only mutate the DOM (no
+  // change event, no click on an identified element). A debounced subtree
+  // observer turns those mutations into one republish; publish() diffs the
+  // serialized snapshot, so unrelated re-renders cost nothing.
+  const observer = new MutationObserver(() => schedule())
+  observer.observe(document.documentElement, { subtree: true, childList: true, characterData: true })
   document.addEventListener('click', onClick, true)
   document.addEventListener('change', schedule, true)
   document.addEventListener('DOMContentLoaded', onDomReady)
@@ -533,6 +599,7 @@ export function buildProbeScript() {
     version: PROBE_VERSION,
     stop: () => {
       clearTimeout(timer)
+      observer.disconnect()
       document.removeEventListener('click', onClick, true)
       document.removeEventListener('change', schedule, true)
       document.removeEventListener('DOMContentLoaded', onDomReady)

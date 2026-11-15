@@ -1,9 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { readFileSync } from 'node:fs'
 import { register } from 'node:module'
+import { parseAuthList } from '../src/cli.js'
 
 // Map '@deepseek-ai/dsh-tools' to a local stub so registerTools() works in tests.
 register(new URL('./fixtures/dsh-tools-loader.mjs', import.meta.url))
@@ -11,7 +10,7 @@ register(new URL('./fixtures/dsh-tools-loader.mjs', import.meta.url))
 /** Declared package version; the health payload must report it verbatim. */
 const VERSION = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version
 
-/** Fake gateway: asset discovery fixtures keyed by environment and type. */
+/** Direct-CLI asset discovery fixtures keyed by environment and type. */
 const FIXTURES = {
   'demo:dataset': [
     { type: 'dataset', id: 'ds_1', name: '销售明细', path: '根目录 / 销售' },
@@ -22,41 +21,35 @@ const FIXTURES = {
   'babycare:page': [],
 }
 
-function fakeGateway() {
+/** Controllable GuancliRunner contract; no companion DSH service exists. */
+function fakeRunner(authOutput, options = {}) {
+  const calls = { searchAssets: [], inspectAsset: [] }
   return {
-    async rpc(action, input) {
-      if (action === 'assets.search') {
-        const list = FIXTURES[`${input.profile}:${input.type}`] ?? []
-        const needle = String(input.query ?? '').toLowerCase()
-        return list.filter((asset) => asset.name.toLowerCase().includes(needle))
-      }
-      if (action === 'assets.inspect') {
-        return { type: input.type, id: input.id, name: input.name, fields: [{ name: '金额' }] }
-      }
-      throw new Error(`unexpected rpc ${action}`)
+    calls,
+    async environments() {
+      if (options.authError !== undefined) throw new Error(options.authError)
+      return parseAuthList(authOutput)
     },
-    async execute() {
-      throw new Error('unbound session')
+    async searchAssets(input) {
+      calls.searchAssets.push(input)
+      if (options.searchError !== undefined) throw new Error(options.searchError)
+      const list = FIXTURES[`${input.profile}:${input.assetType}`] ?? []
+      const needle = String(input.query ?? '').toLowerCase()
+      return list.filter((asset) => asset.name.toLowerCase().includes(needle)).slice(0, input.limit)
+    },
+    async inspectAsset(input) {
+      calls.inspectAsset.push(input)
+      if (options.inspectError !== undefined) throw new Error(options.inspectError)
+      return {
+        type: input.assetType,
+        id: input.assetId,
+        name: input.name ?? `资产 ${input.assetId}`,
+        path: '根目录 / 销售',
+        fields: [{ name: '金额' }],
+        cards: [{ cdId: 'cd_1', name: '销售趋势' }],
+      }
     },
   }
-}
-
-/** Write an executable fake guancli printing the supplied auth table. */
-function fakeCli(authOutput) {
-  const dir = mkdtempSync(join(tmpdir(), 'guancli-fake-'))
-  const path = join(dir, 'guancli')
-  const body = `#!/bin/sh
-if [ "$1" = "auth" ]; then
-  cat <<'AUTH'
-${authOutput}
-AUTH
-  exit 0
-fi
-echo '{"rows":[]}'
-`
-  writeFileSync(path, body, 'utf8')
-  chmodSync(path, 0o755)
-  return path
 }
 
 const AUTH_OK = `已配置的环境:
@@ -70,14 +63,14 @@ const AUTH_OK = `已配置的环境:
 const AUTH_EMPTY = `已配置的环境:
   expired          https://app.guandata.com  [password] (Domain=x, uIdToken=已过期)`
 
-/** Boot the host half against fakes and return an RPC caller. */
+/** Boot the host half with no companion services and a direct CLI fake. */
 async function boot(authOutput = AUTH_OK, options = {}) {
-  const gateway = 'gateway' in options ? options.gateway : fakeGateway()
-  process.env.GUANDATA_PLUGIN_GUANCLI = fakeCli(authOutput)
+  const runner = fakeRunner(authOutput, options)
   const host = await import('../index.js')
   let route
   let preStep
   const tools = []
+  const serviceReads = []
   const ctx = {
     logger: { warn() {}, error() {} },
     effect(run) {
@@ -88,7 +81,8 @@ async function boot(authOutput = AUTH_OK, options = {}) {
       return () => {}
     },
     get(name) {
-      return name === 'guandataGateway' ? gateway : undefined
+      serviceReads.push(name)
+      return undefined
     },
     webServer: {
       register(definition) {
@@ -107,11 +101,13 @@ async function boot(authOutput = AUTH_OK, options = {}) {
     },
   }
   host.apply(ctx)
+  ctx.__mentionsRuntime.runner = runner
   assert.ok(route, 'route must be registered')
   assert.equal(preStep !== undefined, true, 'pre-step listener must be registered')
-  // registerTools resolves dsh-tools lazily; wait until all seven tools land.
-  for (let attempt = 0; attempt < 200 && tools.length < 7; attempt += 1) {
-    await new Promise((resolve) => setImmediate(resolve))
+  // registerTools resolves dsh-tools lazily; poll until it finishes or fails.
+  const deadline = Date.now() + 5_000
+  while (tools.length < 7 && ctx.__mentionsRuntime.toolState === 'pending' && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 10))
   }
   assert.ok(tools.length >= 7, `expected 7 tools, got ${String(tools.length)} (state=${ctx.__mentionsRuntime.toolState})`)
 
@@ -148,16 +144,21 @@ async function boot(authOutput = AUTH_OK, options = {}) {
 
   const exec = { signal: undefined }
 
-  return { host, call, preStep: () => preStep, tool, tools, ctx, exec }
+  return { host, call, preStep: () => preStep, tool, tools, ctx, exec, runner, serviceReads }
 }
 
-test('health reports version, gateway, environment count, and tool state', async () => {
-  const { call } = await boot()
+test('health reports the direct CLI backend without a Guandata gateway', async () => {
+  const { call, ctx, serviceReads } = await boot()
   const { status, body } = await call({ action: 'health' })
+  const hostReads = [...serviceReads]
+  assert.equal(ctx.get('guandataGateway'), undefined)
   assert.equal(status, 200)
   assert.equal(body.data.version, VERSION)
-  assert.equal(body.data.gateway, true)
+  assert.equal(body.data.backend, 'guancli')
+  assert.equal('gateway' in body.data, false)
   assert.equal(body.data.environmentCount, 3)
+  assert.equal(body.data.tools, 'ready')
+  assert.equal(hostReads.includes('guandataGateway'), false, 'Host must not request the retired service')
 })
 
 test('environments action lists authenticated names, urls, and the CLI default', async () => {
@@ -212,22 +213,17 @@ test('no authenticated environment is reported, not hidden', async () => {
   assert.deepEqual(body.data.environments, [])
 })
 
-test('a missing Guandata plugin is reported instead of pretending no match', async () => {
-  const { call } = await boot(AUTH_OK, { gateway: null })
+test('candidate search works when guandataGateway is always undefined', async () => {
+  const { call, ctx, runner } = await boot()
+  assert.equal(ctx.get('guandataGateway'), undefined)
   const { body } = await call({ action: 'candidates', input: { sessionId: 's5', query: '销售' } })
-  assert.equal(body.data.state, 'no-gateway')
+  assert.equal(body.data.state, 'ok')
+  assert.deepEqual(body.data.items.map((item) => item.id), ['ds_1', 'pg_1'])
+  assert.deepEqual(runner.calls.searchAssets.map((input) => input.assetType).sort(), ['dataset', 'page'])
 })
 
-test('search failures surface as an error state', async () => {
-  const broken = {
-    async rpc() {
-      throw new Error('bi down')
-    },
-    async execute() {
-      throw new Error('unbound')
-    },
-  }
-  const { call } = await boot(AUTH_OK, { gateway: broken })
+test('direct CLI search failures surface as an error state', async () => {
+  const { call } = await boot(AUTH_OK, { searchError: 'bi down' })
   const { body } = await call({ action: 'candidates', input: { sessionId: 's6', query: '销售' } })
   assert.equal(body.data.state, 'error')
 })
@@ -455,6 +451,21 @@ test('preview tools stay registered but demoted to sample-verification copy', as
   assert.match(card.description, /统计分析优先/u)
 })
 
+test('asset inspect and page overview need no Guandata gateway', async () => {
+  const booted = await boot()
+  assert.equal(booted.ctx.get('guandataGateway'), undefined)
+  const args = { profile: 'demo', assetType: 'page', assetId: 'pg_1' }
+  const inspected = await booted.tool('guancli_asset_inspect').execute(args, booted.exec)
+  assert.equal(inspected.type, 'page')
+  assert.equal(inspected.id, 'pg_1')
+  assert.deepEqual(inspected.cards, [{ cdId: 'cd_1', name: '销售趋势' }])
+  const overview = await booted.tool('guancli_asset_overview').execute(args, booted.exec)
+  assert.equal(overview.id, 'pg_1')
+  assert.equal(overview.cards[0].cdId, 'cd_1')
+  assert.match(overview.note, /看板由卡片组成/u)
+  assert.equal(booted.runner.calls.inspectAsset.length, 2)
+})
+
 
 test('pageUrl resolves a BI web URL for pages and datasets', async () => {
   const booted = await boot()
@@ -523,8 +534,9 @@ test('guancli_dashboard_context reports the live snapshot and its freshness', as
   assert.equal(missing.connected, false)
 })
 
-test('pre-step keeps the original mention text and appends the asset context', async () => {
+test('pre-step enriches mentions through direct CLI inspect without a gateway', async () => {
   const booted = await boot()
+  assert.equal(booted.ctx.get('guandataGateway'), undefined)
   const listener = booted.preStep()
   const mention = '@[全景库存管理](dsh-guancli:page:demo:g8a4f06e5ad614b7e996ffb2)'
   const userMessage = {
@@ -542,6 +554,10 @@ test('pre-step keeps the original mention text and appends the asset context', a
   const contextMessage = decision.messages[1]
   assert.equal(contextMessage.source.form, 'recall')
   assert.match(contextMessage.content[0].text, /引用的观远资产/u)
+  assert.match(contextMessage.content[0].text, /销售趋势/u)
+  assert.deepEqual(booted.runner.calls.inspectAsset.map((input) => ({
+    profile: input.profile, assetType: input.assetType, assetId: input.assetId,
+  })), [{ profile: 'demo', assetType: 'page', assetId: 'g8a4f06e5ad614b7e996ffb2' }])
 })
 
 test('pre-step injects the dashboard snapshot when the user cites the live board', async () => {
