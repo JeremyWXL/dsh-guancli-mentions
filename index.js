@@ -303,6 +303,9 @@ async function dispatch(runtime, action, input) {
   if (action === 'scope.get') return publicScope(requireScope(runtime, input))
   if (action === 'scope.options') return await scopeOptions(runtime, input)
   if (action === 'scope.save') return await saveScope(runtime, input)
+  if (action === 'scope.confirm') return await saveScope(runtime, input, true)
+  if (action === 'scope.revise') return reviseScope(runtime, input)
+  if (action === 'scope.restore') return await restoreScope(runtime, input)
   if (action === 'pageUrl') return { url: await resourceUrl(runtime, input) }
   if (action === 'context.publish') return publishDashboardContext(runtime, input)
   if (action === 'context.domProbe') return storeDomProbe(runtime, input)
@@ -571,17 +574,56 @@ async function scopeOptions(runtime, input) {
   return { options: await loadScopeOptions(runtime, scope, String(input.selectorId ?? '')) }
 }
 
-async function saveScope(runtime, input) {
+async function saveScope(runtime, input, confirm = false) {
   const scope = requireScope(runtime, input)
-  if (scope.frozen) throw new MentionError('SCOPE_FROZEN', '已提交的数据范围不能继续编辑', 409)
+  if (scope.frozen) throw new MentionError('SCOPE_FROZEN', '已确认的数据范围不能继续编辑', 409)
   let edited = updateScopeSelections(scope, input.selections ?? {})
   for (const id of Object.keys(input.selections ?? {})) {
     const values = edited.selectors.find((selector) => selector.id === id)?.values ?? []
     validateScopeSelection(edited, id, values, await loadScopeOptions(runtime, edited, id))
   }
   edited = await materializeScope(runtime, edited)
+  if (confirm) edited = { ...edited, frozen: true }
   runtime.scopes.set(edited.scopeId, edited)
   return publicScope(edited)
+}
+
+function reviseScope(runtime, input) {
+  const scope = requireScope(runtime, input)
+  if (!scope.frozen) return publicScope(scope)
+  const scopeId = randomUUID()
+  const revised = {
+    ...scope,
+    scopeId,
+    source: 'adjusted',
+    edited: false,
+    revision: scope.revision + 1,
+    frozen: false,
+  }
+  runtime.scopes.set(scopeId, revised)
+  return publicScope(revised)
+}
+
+async function restoreScope(runtime, input) {
+  const sessionId = String(input?.sessionId ?? '').trim()
+  const scopeId = String(input?.scopeId ?? '').trim()
+  const profile = String(input?.profile ?? '').trim()
+  const pageId = String(input?.pageId ?? '').trim()
+  if (!sessionId || !scopeId || !profile || !pageId) {
+    throw new MentionError('SCOPE_RESTORE_INPUT_REQUIRED', '恢复数据范围需要 sessionId、scopeId、profile 和 pageId', 400)
+  }
+  const existing = runtime.scopes.get(scopeId)
+  if (existing) {
+    if (existing.sessionId !== sessionId || existing.profile !== profile || existing.pageId !== pageId) {
+      throw new MentionError('SCOPE_PAGE_MISMATCH', '页面引用与恢复的数据范围不匹配', 409)
+    }
+    return publicScope(existing)
+  }
+  assertEnvironment((await runtime.environments()).environments, profile)
+  const detail = await ensurePageDetail(runtime, profile, pageId)
+  const restored = createPageScope({ scopeId, sessionId, profile, page: detail, source: 'restored' })
+  runtime.scopes.set(scopeId, restored)
+  return publicScope(restored)
 }
 
 async function materializeScope(runtime, scope) {
@@ -719,14 +761,19 @@ async function enrichMessages(runtime, payload, messages) {
         if (scope.profile !== ref.env || scope.pageId !== ref.id) {
           throw new MentionError('SCOPE_PAGE_MISMATCH', '页面引用与数据范围不匹配，请重新选择看板', 409)
         }
-        const frozen = { ...scope, frozen: true }
-        runtime.scopes.set(scope.scopeId, frozen)
+        // A pre-send edit is an explicit choice and keeps the legacy submit-freeze
+        // behavior. An untouched scope stays editable so the conversation can ask
+        // for confirmation before any BI query is allowed.
+        const confirmed = scope.frozen || scope.edited
+        const effective = confirmed ? { ...scope, frozen: true } : scope
+        if (confirmed) runtime.scopes.set(scope.scopeId, effective)
         entry.scope = {
-          scopeId: frozen.scopeId,
-          summary: summarizeScope(frozen),
-          source: frozen.source,
-          edited: frozen.edited,
-          revision: frozen.revision,
+          scopeId: effective.scopeId,
+          summary: summarizeScope(effective),
+          source: effective.source,
+          edited: effective.edited,
+          revision: effective.revision,
+          confirmed,
         }
       }
       entries.push(entry)

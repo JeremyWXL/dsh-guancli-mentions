@@ -696,6 +696,82 @@ test('page scopes expose real summaries and validate edited enum values', async 
   assert.equal(other.status, 403)
 })
 
+test('untouched page scopes wait for conversation confirmation before querying', async () => {
+  const { booted, page } = await scopeBoot()
+  const mention = `@[销售看板](dsh-guancli:page:demo:${EDITABLE_PAGE.pgId}?scope=${page.scopeId})`
+  const pending = await booted.preStep()(
+    { agent: { id: 'scope-session' }, signal: undefined },
+    async () => ({ kind: 'accept', messages: [{ source: { kind: 'user' }, content: [{ type: 'text', text: mention }] }] }),
+  )
+  assert.match(pending.messages[1].content[0].text, /"confirmed":false/u)
+  assert.match(pending.messages[1].content[0].text, /不要调用任何观远查询/u)
+  assert.equal(booted.ctx.__mentionsRuntime.scopes.get(page.scopeId).frozen, false)
+  await assert.rejects(
+    booted.tool('guancli_card_preview').execute({ scopeId: page.scopeId, cardId: 'cd_1' }, booted.exec),
+    /尚未随用户消息提交|尚未确认|数据范围/u,
+  )
+
+  const confirmed = await booted.call({
+    action: 'scope.confirm',
+    input: { sessionId: 'scope-session', scopeId: page.scopeId, selections: { sel_1: { values: ['S0002'], displayValues: ['S0002'] } } },
+  })
+  assert.equal(confirmed.body.data.frozen, true)
+  assert.equal(confirmed.body.data.summary, '门店=S0002')
+  const accepted = await booted.preStep()(
+    { agent: { id: 'scope-session' }, signal: undefined },
+    async () => ({ kind: 'accept', messages: [{ source: { kind: 'user' }, content: [{ type: 'text', text: mention }] }] }),
+  )
+  assert.match(accepted.messages[1].content[0].text, /"confirmed":true/u)
+  assert.ok(!accepted.messages[1].content[0].text.includes('范围确认约定'))
+})
+
+test('confirmed scopes can be revised as independent editable copies', async () => {
+  const { booted, page } = await scopeBoot()
+  const confirmed = await booted.call({
+    action: 'scope.confirm',
+    input: { sessionId: 'scope-session', scopeId: page.scopeId, selections: { sel_1: { values: ['S0002'] } } },
+  })
+  assert.equal(confirmed.body.data.frozen, true)
+  const revised = await booted.call({
+    action: 'scope.revise', input: { sessionId: 'scope-session', scopeId: page.scopeId },
+  })
+  assert.notEqual(revised.body.data.scopeId, page.scopeId)
+  assert.equal(revised.body.data.frozen, false)
+  assert.equal(revised.body.data.summary, '门店=S0002')
+  assert.equal(booted.ctx.__mentionsRuntime.scopes.get(page.scopeId).frozen, true)
+
+  await booted.call({
+    action: 'scope.confirm',
+    input: { sessionId: 'scope-session', scopeId: revised.body.data.scopeId, selections: { sel_1: { values: ['S0001'] } } },
+  })
+  assert.equal(booted.ctx.__mentionsRuntime.scopes.get(page.scopeId).selectors[0].values[0], 'S0002')
+  assert.equal(booted.ctx.__mentionsRuntime.scopes.get(revised.body.data.scopeId).selectors[0].values[0], 'S0001')
+})
+
+test('historical links restore an expired scope as a fresh confirmation', async () => {
+  const { booted, page } = await scopeBoot()
+  booted.ctx.__mentionsRuntime.scopes.clear()
+  const missing = await booted.call({
+    action: 'scope.get', input: { sessionId: 'scope-session', scopeId: page.scopeId },
+  })
+  assert.equal(missing.status, 404)
+  const restored = await booted.call({
+    action: 'scope.restore',
+    input: { sessionId: 'scope-session', scopeId: page.scopeId, profile: 'demo', pageId: EDITABLE_PAGE.pgId },
+  })
+  assert.equal(restored.status, 200)
+  assert.equal(restored.body.data.scopeId, page.scopeId)
+  assert.equal(restored.body.data.source, 'restored')
+  assert.equal(restored.body.data.frozen, false)
+  assert.equal(restored.body.data.summary, '门店=S0001')
+
+  const mismatch = await booted.call({
+    action: 'scope.restore',
+    input: { sessionId: 'scope-session', scopeId: page.scopeId, profile: 'demo', pageId: 'other' },
+  })
+  assert.equal(mismatch.status, 409)
+})
+
 test('submitted page scopes drive card preview with explicit filters', async () => {
   const { booted, page } = await scopeBoot()
   await booted.call({

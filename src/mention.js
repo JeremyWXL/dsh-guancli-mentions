@@ -205,6 +205,7 @@ export const ASSET_USAGE =
  */
 export function buildContextText(entries) {
   const body = JSON.stringify(entries).replace(/</gu, '\\u003c')
+  const hasPendingScope = entries.some((entry) => entry?.scope?.confirmed === false)
   return [
     '## 引用的观远资产',
     '',
@@ -213,6 +214,12 @@ export function buildContextText(entries) {
     '<referenced-assets>',
     body,
     '</referenced-assets>',
+    ...(hasPendingScope ? [
+      '',
+      '范围确认约定：存在 scope.confirmed=false 的看板时，用户尚未明确本次分析范围。'
+      + '不要调用任何观远查询、预览或聚合工具，也不要把页面默认筛选当作已确认条件；'
+      + '只需提示用户在原引用消息下方的筛选 chip 中选择并确认数据范围。确认后用户会发送继续分析的消息。',
+    ] : []),
     '',
     ASSET_USAGE,
   ].join('\n')

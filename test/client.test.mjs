@@ -21,7 +21,7 @@ function loadClientModule() {
   }
   const react = {
     createElement: (type, props, ...children) => ({ type, props, children }),
-    useSyncExternalStore: () => { throw new Error('hooks are unavailable in this harness') },
+    useSyncExternalStore: (_subscribe, getSnapshot) => getSnapshot(),
   }
   const primitives = { Modal: 'Modal', Button: 'Button' }
   const fn = new Function('window', `${source}\nreturn window.__ModuleLoader__;`)
@@ -46,6 +46,7 @@ function harness(options = {}) {
       }
       return options.remote
     },
+    contextMenus: options.contextMenus,
     effect(run) {
       const cleanup = run()
       if (typeof cleanup === 'function') {
@@ -120,7 +121,7 @@ async function withFetch(impl, run) {
  * @param data - host candidates payload.
  * @param version - host version the probe reports.
  */
-function answer(data, version = '0.8.2') {
+function answer(data, version = '0.10.1') {
   return withFetch(async (_url, init) => {
     const body = JSON.parse(init.body)
     const reply = body.action === 'health' ? { version } : data
@@ -129,6 +130,20 @@ function answer(data, version = '0.8.2') {
 }
 
 const session = { sessionId: 'session-1' }
+
+/** Find one element in the small React element tree produced by the test stub. */
+function findElement(node, predicate) {
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      const found = findElement(child, predicate)
+      if (found !== undefined) return found
+    }
+    return undefined
+  }
+  if (!node || typeof node !== 'object') return undefined
+  if (predicate(node)) return node
+  return findElement([node.children, node.props?.footer], predicate)
+}
 
 test('module registers one "@" source named guancli', () => {
   const { captured } = harness()
@@ -175,7 +190,7 @@ test('a stale host generation asks for the restart it needs', async () => {
 })
 
 test('current and future host generations pass the version floor', async () => {
-  for (const version of ['0.8.2', '0.8.10', '0.10.1', '1.0.0']) {
+  for (const version of ['0.10.1', '0.10.10', '0.11.0', '1.0.0']) {
     const rows = await answer({ state: 'need-query', env: 'demo', environments: ['demo'] }, version)
     assert.match(rows[0].name, /关键词/u, `version ${version} must pass the gate`)
   }
@@ -299,6 +314,80 @@ test('clicking the asset chip resolves the URL and opens the sidebar browser', a
   assert.equal(element.props.title, '在侧边栏打开 经营看板')
   await element.props.onClick()
   assert.deepEqual(opened, [{ kind: 'browser', params: { url: 'https://demo.guandata.com/page/pg_1' } }])
+})
+
+test('scoped page links open a menu with adjust and open actions', async () => {
+  const registered = []
+  const opened = []
+  const contextMenus = {
+    register(input) { registered.push(input); return () => {} },
+    open(target, point) { opened.push({ target, point }) },
+  }
+  const { captured } = harness({ contextMenus })
+  const node = captured.nodes.find((entry) => entry.definition.key === 'guancli-asset')
+  const data = { label: '销售看板', type: 'page', env: 'demo', id: 'pg_1', scopeId: 'scope-old' }
+  const element = node.component({ node: { data }, sessionId: 'session-1', ...node.definition.inject() })
+  assert.equal(element.props['aria-haspopup'], 'menu')
+  element.props.onClick({
+    preventDefault() {}, stopPropagation() {},
+    currentTarget: { getBoundingClientRect: () => ({ left: 40, bottom: 60 }) },
+  })
+  assert.deepEqual(opened[0].point, { x: 40, y: 60 })
+  assert.equal(opened[0].target.kind, 'guancli-asset')
+  const actions = registered[0].resolve(opened[0].target.value)
+  assert.deepEqual(actions.map((action) => action.label), ['调整数据范围', '打开页面'])
+
+  await withFetch(async (_url, init) => {
+    const body = JSON.parse(init.body)
+    const data = body.action === 'scope.get'
+      ? {
+          scopeId: 'scope-old', pageId: 'pg_1', pageName: '销售看板', summary: '区域=华东',
+          selectors: [], frozen: true, edited: true, revision: 1,
+        }
+      : {
+          scopeId: 'scope-new', pageId: 'pg_1', pageName: '销售看板', summary: '区域=华东',
+          selectors: [], frozen: false, edited: false, revision: 2,
+        }
+    return { json: async () => ({ ok: true, data }) }
+  }, () => actions[0].run())
+  assert.equal(captured.source.scopeEditor.getSnapshot().scopeId, 'scope-new')
+  assert.equal(captured.source.scopeEditor.getSnapshot().mode, 'confirm')
+  assert.match(captured.source.scopeEditor.getSnapshot().reference, /scope=scope-new/u)
+})
+
+test('expired scoped links restore current page filters for confirmation', async () => {
+  const { captured } = harness()
+  const requests = []
+  await withFetch(async (_url, init) => {
+    const body = JSON.parse(init.body)
+    requests.push(body)
+    if (body.action === 'scope.get') {
+      return { json: async () => ({ ok: false, error: { message: '页面数据范围不存在' } }) }
+    }
+    return {
+      json: async () => ({
+        ok: true,
+        data: {
+          scopeId: 'scope-old', pageId: 'pg_1', pageName: '销售看板', summary: '区域=华东',
+          source: 'restored', selectors: [], frozen: false, edited: false, revision: 0,
+        },
+      }),
+    }
+  }, async () => {
+    const ref = '@[销售看板](dsh-guancli:page:demo:pg_1?scope=scope-old)'
+    await captured.source.scopeEditor.open('session-1', ref, { confirm: true, revise: true })
+  })
+  const restore = requests.find((request) => request.action === 'scope.restore')
+  assert.deepEqual(restore.input, {
+    sessionId: 'session-1', scopeId: 'scope-old', profile: 'demo', pageId: 'pg_1',
+  })
+  const state = captured.source.scopeEditor.getSnapshot()
+  assert.equal(state.restored, true)
+  assert.equal(state.error, '')
+  assert.equal(state.scopeId, 'scope-old')
+  const modal = captured.source.ScopeEditor({ sessionId: 'session-1' })
+  assert.match(JSON.stringify(modal), /原范围已失效/u)
+  assert.ok(!JSON.stringify(modal).includes('正在读取页面筛选器'))
 })
 
 test('every locale dictionary carries the new asset.open keys', () => {
@@ -531,6 +620,17 @@ test('page chips carry their scope id and real filter summary', () => {
   assert.equal(outcome.insert.label, '销售看板 · 区域=华东')
 })
 
+test('scope editor is mounted in the composer overlay with list-slot options', () => {
+  const { captured } = harness()
+  const node = captured.nodes.find((entry) => entry.definition.name === 'conversation.input.overlay')
+  assert.ok(node, 'scope editor must register in conversation.input.overlay')
+  assert.equal(node.definition.id, 'guancli-scope-editor')
+  assert.equal(node.definition.order, 100)
+  assert.equal(node.definition.key, undefined)
+  assert.equal(node.definition.priority, undefined)
+  assert.equal(node.component, captured.source.ScopeEditor)
+})
+
 test('scope editor loads real options, accepts a selection, and saves the same scope', async () => {
   const { captured } = harness()
   const scope = {
@@ -561,8 +661,31 @@ test('scope editor loads real options, accepts a selection, and saves the same s
     assert.deepEqual(captured.source.scopeEditor.getSnapshot().options.region, [
       { value: '华东', label: '华东' }, { value: '华南', label: '华南' },
     ])
-    await captured.source.scopeEditor.select('region', ['华南'], ['华南'])
-    await captured.source.scopeEditor.save()
+
+    // Exercise the actual modal controls, not only the underlying store.
+    const modal = captured.source.ScopeEditor({ sessionId: 'session-1' })
+    assert.equal(modal.type, 'Modal')
+    assert.equal(modal.props.open, true)
+    assert.match(modal.props.title, /页面数据范围/u)
+    const filterBar = findElement(modal, (element) => element.props?.className === 'guancli-scope-filter-bar')
+    assert.ok(filterBar)
+    assert.equal(filterBar.props.style.display, 'flex')
+    assert.equal(filterBar.props.style.flexWrap, 'wrap')
+    const filterChip = findElement(modal, (element) => element.props?.['data-filter-id'] === 'region')
+    assert.equal(filterChip.props.style.display, 'inline-flex')
+    const select = findElement(modal, (element) => element.type === 'select')
+    assert.ok(select, 'the modal must render an interactive filter select')
+    assert.equal(select.props.value, '华东')
+    assert.equal(select.props.disabled, false)
+    select.props.onChange({ target: { selectedOptions: [{ value: '华南' }] } })
+    await new Promise((resolve) => setImmediate(resolve))
+
+    const updated = captured.source.ScopeEditor({ sessionId: 'session-1' })
+    const save = findElement(updated, (element) => element.type === 'Button' && element.props.variant === 'primary')
+    assert.ok(save, 'the modal must render a save action')
+    assert.equal(save.props.disabled, false)
+    save.props.onClick()
+    await new Promise((resolve) => setImmediate(resolve))
   })
   const saved = requests.find((request) => request.action === 'scope.save')
   assert.equal(saved.input.scopeId, 'scope-1')
@@ -570,6 +693,103 @@ test('scope editor loads real options, accepts a selection, and saves the same s
   assert.equal(saved.input.selections.tree, undefined)
   assert.equal(captured.source.scopeEditor.getSnapshot().scope.summary, '区域=华南')
   assert.equal(captured.source.openReference(session, { ref: '@[销售](dsh-guancli:dataset:demo:ds_1)' }), false)
+})
+
+test('multi-value page filters stay inside a compact checkbox chip', async () => {
+  const { captured } = harness()
+  const scope = {
+    scopeId: 'scope-multi', pageId: 'pg_1', pageName: '销售看板', summary: '门店=华东店',
+    revision: 0, edited: false, frozen: false,
+    selectors: [{
+      id: 'store', name: '门店', type: 'DS_ELEMENTS', editable: true,
+      multiSelect: true, values: ['S0001'], displayValues: ['华东店'],
+    }],
+  }
+  await withFetch(async (_url, init) => {
+    const body = JSON.parse(init.body)
+    const data = body.action === 'scope.get'
+      ? scope
+      : { options: [{ value: 'S0001', label: '华东店' }, { value: 'S0002', label: '华南店' }] }
+    return { json: async () => ({ ok: true, data }) }
+  }, async () => {
+    const ref = '@[销售看板](dsh-guancli:page:demo:pg_1?scope=scope-multi)'
+    await captured.source.scopeEditor.open('session-1', ref)
+    const modal = captured.source.ScopeEditor({ sessionId: 'session-1' })
+    const details = findElement(modal, (element) => element.type === 'details')
+    assert.ok(details, 'multi-select must use a popover instead of a tall native listbox')
+    const checkbox = findElement(details, (element) => element.type === 'input' && element.props.value === 'S0002')
+    assert.ok(checkbox)
+    checkbox.props.onChange({ target: { checked: true } })
+    await new Promise((resolve) => setImmediate(resolve))
+    assert.deepEqual(captured.source.scopeEditor.getSnapshot().selections.store, {
+      values: ['S0001', 'S0002'], displayValues: ['华东店', '华南店'],
+    })
+  })
+})
+
+test('sent page mentions render filter chips and confirmation resumes the agent', async () => {
+  const prompts = []
+  const remote = { session: { async prompt(input) { prompts.push(input) } } }
+  const { captured } = harness({ remote })
+  const footer = captured.nodes.find((entry) => entry.definition.id === 'guancli-scope-confirmation')
+  assert.ok(footer, 'scope confirmation chips must register in the user message footer')
+  assert.equal(footer.definition.name, 'conversation.chat.userMessageFooter')
+  assert.equal(footer.definition.order, 30)
+
+  const ref = '@[销售看板](dsh-guancli:page:demo:pg_1?scope=scope-1)'
+  const owner = { sessionId: 'session-1', message: { content: [{ type: 'text', text: `分析 ${ref}` }] } }
+  const chip = findElement(footer.component(owner), (element) => element.props?.className === 'guancli-scope-filter-chip')
+  assert.ok(chip, 'the sent page mention must render a filter-style chip')
+  assert.match(JSON.stringify(chip), /确认数据范围/u)
+  assert.equal(footer.component({ sessionId: 'session-1', message: { content: [{ type: 'text', text: '普通消息' }] } }), null)
+
+  const scope = {
+    scopeId: 'scope-1', pageId: 'pg_1', pageName: '销售看板', summary: '门店=S0001',
+    revision: 0, edited: false, frozen: false,
+    selectors: [{
+      id: 'store', name: '门店', type: 'DS_ELEMENTS', editable: true,
+      multiSelect: false, values: ['S0001'], displayValues: ['S0001'],
+    }],
+  }
+  const requests = []
+  await withFetch(async (_url, init) => {
+    const body = JSON.parse(init.body)
+    requests.push(body)
+    const data = body.action === 'scope.get'
+      ? scope
+      : body.action === 'scope.options'
+        ? { options: [{ value: 'S0001', label: '华东店' }, { value: 'S0002', label: '华南店' }] }
+        : { ...scope, summary: '门店=华南店', edited: true, frozen: true, revision: 1 }
+    return { json: async () => ({ ok: true, data }) }
+  }, async () => {
+    await chip.props.onClick()
+    assert.equal(captured.source.scopeEditor.getSnapshot().mode, 'confirm')
+    const modal = captured.source.ScopeEditor({ sessionId: 'session-1' })
+    const select = findElement(modal, (element) => element.type === 'select')
+    assert.ok(select, 'the chip must open actual filter controls')
+    select.props.onChange({ target: { selectedOptions: [{ value: 'S0002' }] } })
+    await new Promise((resolve) => setImmediate(resolve))
+    const textarea = findElement(modal, (element) => element.type === 'textarea')
+    assert.ok(textarea, 'confirmation must include an analysis request input')
+    textarea.props.onChange({ target: { value: '重点分析费用异常，并指出需要关注的业务单位' } })
+
+    const updated = captured.source.ScopeEditor({ sessionId: 'session-1' })
+    const confirm = findElement(updated, (element) => element.type === 'Button' && element.props.variant === 'primary')
+    assert.ok(confirm)
+    assert.match(JSON.stringify(confirm), /确认范围并继续/u)
+    confirm.props.onClick()
+    await new Promise((resolve) => setImmediate(resolve))
+  })
+
+  const confirmed = requests.find((request) => request.action === 'scope.confirm')
+  assert.ok(confirmed, 'the GUI must call scope.confirm rather than only saving a draft')
+  assert.deepEqual(confirmed.input.selections.store.values, ['S0002'])
+  assert.equal(prompts.length, 1, 'confirmation must resume the same session')
+  assert.equal(prompts[0].sessionId, 'session-1')
+  assert.match(prompts[0].content[0].text, /scope=scope-1/u)
+  assert.match(prompts[0].content[0].text, /门店=华南店/u)
+  assert.ok(prompts[0].content[0].text.startsWith('重点分析费用异常，并指出需要关注的业务单位'))
+  assert.equal(captured.source.scopeEditor.getSnapshot().open, false)
 })
 
 test('the user-text rule keeps the page id separate from its scope query', () => {

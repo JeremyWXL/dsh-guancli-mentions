@@ -74,6 +74,32 @@ test('createPageScope reads real filters, defaults, mappings and linkage', () =>
   assert.equal(summarizeScope(scope), '区域=华东 · 城市=首个候选 · 日期=最近7天')
 })
 
+test('createPageScope keeps only main page filters and expands selector groups', () => {
+  const page = pageFixture()
+  page.cards.push(
+    {
+      cdId: 'axis', name: '横轴', cdType: 'SELECTOR',
+      content: { selectorType: 'PARAMETER', options: [{ name: '销售额' }] },
+    },
+    {
+      cdId: 'hidden', name: '局部维度', cdType: 'SELECTOR',
+      content: { selectorType: 'DS_ELEMENTS', source: { dsId: 'ds_1', field: { name: '局部维度' } } },
+    },
+  )
+  page.meta = {
+    filterLayout: ['date', 'region-group', 'missing'],
+    layoutItemMap: { 'region-group': { cdIds: ['region', 'city'] } },
+  }
+  const scope = createPageScope({ scopeId: 'scope_layout', sessionId: 'session_1', profile: 'demo', page })
+  assert.deepEqual(scope.selectors.map((selector) => selector.id), ['date', 'region', 'city'])
+
+  // Older page definitions without filterLayout still expose their data
+  // selectors, but chart parameters such as 横轴/纵轴/气泡 are never filters.
+  delete page.meta
+  const legacy = createPageScope({ scopeId: 'scope_legacy', sessionId: 'session_1', profile: 'demo', page })
+  assert.deepEqual(legacy.selectors.map((selector) => selector.id), ['region', 'city', 'date', 'hidden'])
+})
+
 test('filtersForCard applies only original card mappings and autoLink rules', () => {
   const filters = filtersForCard(scopeFixture(), 'chart_1')
   assert.deepEqual(filters.map((filter) => [filter.field, filter.operator, filter.values]), [

@@ -86,14 +86,40 @@ function selectorOf(card) {
   }
 }
 
+function pageFilterCards(root) {
+  const cards = Array.isArray(root?.cards) ? root.cards : []
+  const isDataFilter = (card) => String(card?.cdType ?? '').includes('SELECTOR')
+    && String(card?.content?.selectorType ?? '') !== 'PARAMETER'
+  const layout = root?.meta?.filterLayout
+  if (!Array.isArray(layout)) return cards.filter(isDataFilter)
+
+  // The page's main filter bar may contain selector groups (for example
+  // 省-市-区县). Expand those references, preserve the visual order, and do
+  // not fall back to every SELECTOR card hidden inside analysis card groups.
+  const byId = new Map(cards.map((card) => [String(card?.cdId ?? ''), card]))
+  const out = []
+  const seen = new Set()
+  const add = (id) => {
+    const card = byId.get(String(id))
+    if (!isDataFilter(card) || seen.has(card.cdId)) return
+    seen.add(card.cdId)
+    out.push(card)
+  }
+  for (const entry of layout) {
+    const id = String(entry)
+    add(id)
+    const group = root?.meta?.layoutItemMap?.[id]
+    for (const child of Array.isArray(group?.cdIds) ? group.cdIds : []) add(child)
+  }
+  return out
+}
+
 export function createPageScope({ scopeId, sessionId, profile, page, source = 'default' }) {
   const root = page?.data && typeof page.data === 'object' ? page.data : page
   const pageId = String(root?.pgId ?? root?.pageId ?? '')
   if (pageId === '') fail('SCOPE_PAGE_REQUIRED', '页面详情缺少页面 ID')
   const cards = Array.isArray(root?.cards) ? root.cards : []
-  const filterIds = new Set(Array.isArray(root?.meta?.filterLayout) ? root.meta.filterLayout.map(String) : [])
-  const selectors = cards
-    .filter((card) => filterIds.has(String(card?.cdId ?? '')) || String(card?.cdType ?? '').includes('SELECTOR'))
+  const selectors = pageFilterCards(root)
     .map(selectorOf)
     .filter((selector) => selector.id !== '')
   const selectorIds = new Set(selectors.map((selector) => selector.id))
