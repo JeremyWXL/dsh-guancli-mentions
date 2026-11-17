@@ -23,7 +23,7 @@ export const MENTION_TYPES = ['dataset', 'page']
 /** Upper bound on distinct assets carried by one message. */
 export const MAX_MENTIONS_PER_MESSAGE = 3
 
-const MENTION_RE = /@\[([^\]\n]{1,200})\]\(dsh-guancli:(dataset|page):([^:\s)]{1,80}):([^\s)]{1,200})\)/gu
+const MENTION_RE = /@\[([^\]\n]{1,200})\]\(dsh-guancli:(dataset|page):([^:\s)]{1,80}):([^?\s)]{1,200})(?:\?scope=([A-Za-z0-9_-]{1,80}))?\)/gu
 
 /**
  * Strip characters that would break the Markdown mention form or the draft
@@ -47,9 +47,10 @@ export function sanitizeLabel(value) {
  * @param id - asset identity.
  * @returns the mention text.
  */
-export function formatMention(label, type, env, id) {
+export function formatMention(label, type, env, id, scopeId) {
   const safe = sanitizeLabel(label)
-  return `@[${safe === '' ? String(id) : safe}](${SCHEME}:${String(type)}:${String(env)}:${String(id)})`
+  const suffix = type === 'page' && scopeId !== undefined ? `?scope=${String(scopeId)}` : ''
+  return `@[${safe === '' ? String(id) : safe}](${SCHEME}:${String(type)}:${String(env)}:${String(id)}${suffix})`
 }
 
 /**
@@ -61,7 +62,7 @@ export function dedupeRefs(refs) {
   const seen = new Set()
   const out = []
   for (const ref of refs) {
-    const key = `${ref.type}:${ref.env}:${ref.id}`
+    const key = `${ref.type}:${ref.env}:${ref.id}:${ref.scopeId ?? ''}`
     if (seen.has(key)) continue
     seen.add(key)
     out.push(ref)
@@ -76,10 +77,17 @@ export function dedupeRefs(refs) {
  */
 export function parseMentions(text) {
   const refs = []
-  const readable = String(text ?? '').replace(MENTION_RE, (_whole, rawLabel, type, env, id) => {
+  const readable = String(text ?? '').replace(MENTION_RE, (whole, rawLabel, type, env, id, scopeId) => {
+    if (type === 'dataset' && scopeId !== undefined) return whole
     const cleaned = sanitizeLabel(rawLabel)
     const label = cleaned === '' ? String(id) : cleaned
-    refs.push({ type, env: String(env), id: String(id), label })
+    refs.push({
+      type,
+      env: String(env),
+      id: String(id),
+      label,
+      ...(type === 'page' && scopeId !== undefined ? { scopeId: String(scopeId) } : {}),
+    })
     return `@${label}`
   })
   return { text: readable, refs: dedupeRefs(refs) }
@@ -185,8 +193,10 @@ export const ASSET_WARNING =
 
 /** Usage rules the model needs to turn a mention into a query. */
 export const ASSET_USAGE =
-  '使用约定：dataset 用 guancli_dataset_preview(profile, datasetId)；page（看板）先用 guancli_asset_inspect 查看卡片，'
-  + '再用 guancli_card_preview(profile, pageId, cardId) 查询。profile 必须填资产所属环境，行数受硬上限约束，不要绕过。'
+  '使用约定：先用 guancli_asset_overview(profile, assetType, assetId) 了解字段与角色（维度/度量/时间），后续分析只能引用其中出现的字段。'
+  + '数据集统计用 guancli_analyze_dataset（聚合在 BI 侧完成，返回统计结果而非明细，不受行数上限影响）；'
+  + '枚举字段取值用 guancli_field_profile。guancli_dataset_preview 仅用于验证字段含义，不要用它做分析。profile 必须填资产所属环境。'
+  + '页面上下文包含 scope 时，guancli_analyze_dataset 和 guancli_card_preview 都应传对应 scopeId，以应用用户确认的范围；各页面范围独立，不得互相继承。'
 
 /**
  * Render the second user message that carries the referenced asset context.

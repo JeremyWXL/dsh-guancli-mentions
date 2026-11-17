@@ -45,6 +45,18 @@ test('parseMentions rewrites to readable labels and keeps identity', () => {
   ])
 })
 
+test('page mentions carry an optional analysis scope without changing legacy references', () => {
+  assert.equal(
+    formatMention('经营看板', 'page', 'demo', 'pg_9', 'scope-1'),
+    '@[经营看板](dsh-guancli:page:demo:pg_9?scope=scope-1)',
+  )
+  const parsed = parseMentions('@[经营看板](dsh-guancli:page:demo:pg_9?scope=scope-1)')
+  assert.deepEqual(parsed.refs, [
+    { type: 'page', env: 'demo', id: 'pg_9', label: '经营看板', scopeId: 'scope-1' },
+  ])
+  assert.deepEqual(parseMentions('@[销售](dsh-guancli:dataset:demo:ds_1?scope=scope-1)').refs, [])
+})
+
 test('parseMentions leaves unrelated and malformed text untouched', () => {
   const text = '普通 @文件 和 @[坏](dsh-guancli:card:demo:c1) 以及 @[](dsh-guancli:dataset:demo:)'
   const parsed = parseMentions(text)

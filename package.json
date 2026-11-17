@@ -1,6 +1,6 @@
 {
   "name": "@local/dsh-guancli-mentions",
-  "version": "0.2.1",
+  "version": "0.8.2",
   "private": true,
   "description": "Mention authorized Guandata datasets and dashboards from the DSH composer.",
   "type": "module",
@@ -26,8 +26,13 @@
       "platform": "web",
       "immediately": true,
       "inject": [
-        "@deepseek-ai/dsh-client-ui-input-trigger"
+        "@deepseek-ai/dsh-client-ui-input-trigger",
+        "@deepseek-ai/dsh-client-ui-primitives",
+        "@deepseek-ai/dsh-client-ui-slots"
       ]
     }
+  },
+  "scripts": {
+    "sync:probe": "node scripts/sync-probe.mjs"
   }
 }
